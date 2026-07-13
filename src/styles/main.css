@@ -482,6 +482,22 @@ button {
   background: linear-gradient(0deg, rgb(2 8 16 / 58%), transparent 48%);
 }
 
+.screen-layer:not([hidden]),
+.modal-card,
+.dialogue-panel {
+  animation: surface-fade 180ms ease-out both;
+}
+
+@keyframes surface-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .dialogue-portrait {
   position: relative;
   z-index: 1;

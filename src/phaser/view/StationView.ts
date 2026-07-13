@@ -20,6 +20,8 @@ const PALETTE = {
   memory: 0xeea07e,
 } as const;
 
+const CLOCK_MINUTES_BY_STAGE = [0, 18, 47, 95, 151, 236, 298] as const;
+
 interface RainDrop {
   x: number;
   y: number;
@@ -91,6 +93,29 @@ function drawLamp(graphics: Phaser.GameObjects.Graphics, x: number, y: number, l
   }
 }
 
+function activeLampPositions(areaId: AreaId, stage: number): readonly Point[] {
+  switch (areaId) {
+    case "area_waiting_room":
+      return stage >= 1 ? [{ x: 335, y: 80 }, { x: 735, y: 80 }] : [{ x: 735, y: 80 }];
+    case "area_concourse":
+      return stage >= 2 ? [{ x: 290, y: 80 }, { x: 690, y: 80 }] : [{ x: 290, y: 80 }];
+    case "area_station_office":
+      return [{ x: 520, y: 80 }];
+    case "area_footbridge":
+      return [
+        { x: 280, y: 76 },
+        ...(stage >= 2 ? [{ x: 560, y: 76 }] : []),
+        ...(stage >= 3 ? [{ x: 840, y: 76 }] : []),
+      ];
+    case "area_rain_platform":
+      return [
+        { x: 220, y: 146 },
+        ...(stage >= 4 ? [{ x: 560, y: 146 }] : []),
+        ...(stage >= 5 ? [{ x: 900, y: 146 }] : []),
+      ];
+  }
+}
+
 function drawBench(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number): void {
   graphics.fillStyle(0x172638, 0.8);
   graphics.fillEllipse(x + width / 2, y + 43, width + 28, 23);
@@ -144,8 +169,11 @@ function paintWaitingRoom(scene: Phaser.Scene, graphics: Phaser.GameObjects.Grap
   graphics.fillCircle(554, 86, 33);
   graphics.lineStyle(3, PALETTE.lampDim, 0.8);
   graphics.strokeCircle(554, 86, 33);
-  graphics.lineBetween(554, 86, 554, 67);
-  graphics.lineBetween(554, 86, 570, 86);
+  const clockMinutes = CLOCK_MINUTES_BY_STAGE[Math.min(stage, CLOCK_MINUTES_BY_STAGE.length - 1)] ?? 0;
+  const minuteAngle = ((clockMinutes % 60) / 60) * Math.PI * 2 - Math.PI / 2;
+  const hourAngle = ((clockMinutes / 60) / 12) * Math.PI * 2 - Math.PI / 2;
+  graphics.lineBetween(554, 86, 554 + Math.cos(minuteAngle) * 21, 86 + Math.sin(minuteAngle) * 21);
+  graphics.lineBetween(554, 86, 554 + Math.cos(hourAngle) * 15, 86 + Math.sin(hourAngle) * 15);
 
   graphics.fillStyle(PALETTE.rain, 0.1);
   graphics.fillEllipse(550, 470, 310, 42);
@@ -362,8 +390,9 @@ export function paintArea(
   }
 
   const rain = scene.add.graphics().setDepth(20);
+  const lampGlow = scene.add.graphics().setDepth(1);
   const outdoor = areaId === "area_rain_platform";
-  const rainCount = reducedMotion ? (outdoor ? 38 : 16) : (outdoor ? 92 : 34);
+  const rainCount = stage >= 6 ? 0 : reducedMotion ? (outdoor ? 38 : 16) : (outdoor ? 92 : 34);
   const drops: RainDrop[] = Array.from({ length: rainCount }, (_, index) => ({
     x: (index * 173 + 41) % WORLD_WIDTH,
     y: (index * 89 + 23) % WORLD_HEIGHT,
@@ -373,15 +402,22 @@ export function paintArea(
 
   const puddle = scene.add.graphics().setDepth(2);
   const update = (time: number, delta: number): void => {
+    lampGlow.clear();
+    for (const [index, lamp] of activeLampPositions(areaId, stage).entries()) {
+      const pulse = reducedMotion ? 0.045 : 0.042 + Math.sin(time * 0.0017 + index * 1.9) * 0.012;
+      lampGlow.fillStyle(PALETTE.lamp, pulse);
+      lampGlow.fillCircle(lamp.x, lamp.y + 22, 68);
+    }
     rain.clear();
-    const intensity = stage >= 6 ? 0.09 : outdoor ? 0.43 : 0.13;
+    puddle.clear();
+    if (stage >= 6) return;
+    const intensity = outdoor ? 0.43 : 0.13;
     rain.lineStyle(1, PALETTE.rain, intensity);
     for (const drop of drops) {
       drop.y += (drop.speed * delta) / 1_000;
       if (drop.y > WORLD_HEIGHT + 20) drop.y = -20;
       rain.lineBetween(drop.x, drop.y, drop.x - 4, drop.y + drop.length);
     }
-    puddle.clear();
     puddle.lineStyle(1, PALETTE.rain, 0.12);
     const rippleCount = reducedMotion ? 2 : 5;
     for (let index = 0; index < rippleCount; index += 1) {
@@ -397,6 +433,7 @@ export function paintArea(
     destroy: () => {
       graphics.destroy();
       rain.destroy();
+      lampGlow.destroy();
       puddle.destroy();
     },
   };

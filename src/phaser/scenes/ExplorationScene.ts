@@ -97,6 +97,7 @@ export class ExplorationScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBackgroundColor("#071326");
+    if (!state.settings.reducedMotion) this.cameras.main.fadeIn(240, 7, 19, 38);
     this.areaVisual = paintArea(this, state.areaId, stage, state.settings.reducedMotion);
 
     this.createObstacles(area.obstacles);

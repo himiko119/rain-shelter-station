@@ -419,7 +419,7 @@ export class GameApplication {
         break;
       case "owner":
       case "mirror":
-        this.talkToOwner(hotspot);
+        this.talkToOwner(hotspot, firstInspection);
         break;
       case "ending":
         this.openFinalChoice();
@@ -472,7 +472,7 @@ export class GameApplication {
     );
   }
 
-  private talkToOwner(hotspot: HotspotDefinition): void {
+  private talkToOwner(hotspot: HotspotDefinition, firstInspection: boolean): void {
     if (!hotspot.ownerId) {
       this.showDialogueById(hotspot.dialogId);
       return;
@@ -486,7 +486,11 @@ export class GameApplication {
     let definition = getDialogue(
       ownerAlreadyHelped
         ? owner?.returnedDialogId
-        : hotspot.dialogId ?? owner?.ambientDialogId,
+        : firstInspection
+          ? hotspot.dialogId ?? owner?.ambientDialogId
+          : hotspot.ownerId === "owner_station_attendant"
+            ? hotspot.repeatDialogId ?? owner?.ambientDialogId ?? hotspot.dialogId
+            : owner?.ambientDialogId ?? hotspot.dialogId,
     );
 
     if (hotspot.ownerId === "owner_station_attendant") {

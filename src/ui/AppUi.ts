@@ -344,7 +344,8 @@ export class AppUi {
     };
     this.dialogueAdvance = advance;
     panel.addEventListener("click", (event) => {
-      if (!(event.target instanceof HTMLButtonElement)) advance();
+      const target = event.target;
+      if (!(target instanceof Element && target.closest("button"))) advance();
     });
     renderLine();
     this.dialogueLayer.focus();
