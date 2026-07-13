@@ -18,7 +18,7 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:prod"
   },
   "dependencies": {
-    "phaser": "^4.2.1"
+    "phaser": "3.90.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
