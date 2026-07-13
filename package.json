@@ -1,0 +1,34 @@
+{
+  "name": "rain-shelter-station",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "雨の無人駅を舞台にした2D探索アドベンチャー",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:e2e": "vite --mode e2e --host 127.0.0.1 --port 4173 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify:prod": "node scripts/verify-production-build.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:prod"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.63.0",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
+  }
+}

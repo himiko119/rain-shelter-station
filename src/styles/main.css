@@ -1,0 +1,192 @@
+:root {
+  color-scheme: dark;
+  font-family: "Yu Gothic UI", "Hiragino Sans", "Meiryo", system-ui, sans-serif;
+  --night: #071326;
+  --night-soft: #11283b;
+  --rain: #6eb9bd;
+  --lamp: #f2d78e;
+  --memory: #f2a77e;
+  --ink: #f7f0dc;
+  --muted: #abc2c5;
+  --panel: rgb(7 19 38 / 88%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 50% 40%, rgb(80 137 145 / 18%), transparent 42%),
+    var(--night);
+}
+
+button {
+  color: inherit;
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--lamp);
+  outline-offset: 3px;
+}
+
+#game-world {
+  position: fixed;
+  inset: 0;
+}
+
+#game-world canvas {
+  display: block;
+}
+
+.title-screen {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  width: min(100%, 1180px);
+  height: 100%;
+  margin: auto;
+  padding: clamp(24px, 5vw, 72px);
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(4 12 25 / 82%) 0%, rgb(4 12 25 / 66%) 42%, transparent 72%);
+}
+
+.title-screen__eyebrow {
+  margin: 0 0 14px;
+  color: var(--rain);
+  font: 600 0.72rem/1.4 ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title-screen h1 {
+  margin: 0;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: clamp(2.9rem, 7vw, 5.8rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0.06em;
+  text-shadow: 0 5px 24px rgb(0 0 0 / 70%);
+}
+
+.title-screen h1 span {
+  color: var(--lamp);
+  font-size: 0.66em;
+  letter-spacing: 0.22em;
+}
+
+.title-screen__tagline {
+  margin: 22px 0 30px;
+  color: #d7e6e4;
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  letter-spacing: 0.08em;
+}
+
+.title-screen__menu {
+  display: grid;
+  gap: 8px;
+  width: min(320px, 78vw);
+  pointer-events: auto;
+}
+
+.title-screen__menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 1px solid rgb(151 204 205 / 22%);
+  border-radius: 7px;
+  color: #dcebea;
+  text-align: left;
+  background: rgb(7 21 39 / 70%);
+  backdrop-filter: blur(5px);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.title-screen__menu button:hover:not(:disabled) {
+  border-color: rgb(242 215 142 / 70%);
+  background: rgb(21 49 66 / 88%);
+  transform: translateX(4px);
+}
+
+.title-screen__menu .primary {
+  border-color: rgb(242 215 142 / 60%);
+  color: #172334;
+  background: linear-gradient(90deg, #f2d78e, #dcb86f);
+  font-weight: 700;
+}
+
+.title-screen__menu button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.title-screen__menu small {
+  color: inherit;
+  font-size: 0.68rem;
+  opacity: 0.72;
+}
+
+.title-screen__controls {
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 620px) {
+  .title-screen {
+    align-content: end;
+    padding: 32px 24px max(30px, env(safe-area-inset-bottom));
+    background: linear-gradient(0deg, rgb(4 12 25 / 96%) 0%, rgb(4 12 25 / 72%) 54%, transparent 88%);
+  }
+
+  .title-screen h1 {
+    font-size: clamp(2.55rem, 14vw, 4rem);
+  }
+
+  .title-screen__tagline {
+    margin: 14px 0 22px;
+  }
+
+  .title-screen__menu {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .title-screen__menu .primary,
+  .title-screen__menu button:nth-child(2) {
+    grid-column: span 2;
+  }
+
+  .title-screen__controls {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
