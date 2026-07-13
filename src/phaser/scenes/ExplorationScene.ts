@@ -170,8 +170,8 @@ export class ExplorationScene extends Phaser.Scene {
     }
 
     this.updateNearbyHotspot();
-    this.updateExit(time);
-    if (time - this.lastPositionSync >= 500) {
+    const handledExit = this.updateExit(time);
+    if (!handledExit && time - this.lastPositionSync >= 500) {
       this.lastPositionSync = time;
       this.bridge.onPlayerPosition(this.getPlayerPosition());
     }
@@ -209,6 +209,8 @@ export class ExplorationScene extends Phaser.Scene {
       previous === null ||
       previous.areaId !== state.areaId ||
       selectStage(previous) !== selectStage(state) ||
+      previous.inventoryItemIds.length !== state.inventoryItemIds.length ||
+      previous.foundClueIds.length !== state.foundClueIds.length ||
       previous.settings.reducedMotion !== state.settings.reducedMotion ||
       previous.started !== state.started;
     if (shouldRestart && this.scene.isActive()) {
@@ -330,13 +332,13 @@ export class ExplorationScene extends Phaser.Scene {
     }
   }
 
-  private updateExit(time: number): void {
-    if (!this.player || time < this.exitCooldownUntil || !this.bridge.canAcceptWorldInput()) return;
+  private updateExit(time: number): boolean {
+    if (!this.player || time < this.exitCooldownUntil || !this.bridge.canAcceptWorldInput()) return false;
     const state = this.bridge.getState();
     const stage = selectStage(state);
     const area = getArea(state.areaId);
     const exit = area.exits.find((candidate) => pointInBounds(this.player?.x ?? 0, this.player?.y ?? 0, candidate.bounds));
-    if (!exit) return;
+    if (!exit) return false;
     this.exitCooldownUntil = time + EXIT_COOLDOWN_MS;
     this.pointerTarget = null;
     if (stage >= exit.availableFromStage) {
@@ -349,6 +351,7 @@ export class ExplorationScene extends Phaser.Scene {
       this.bridge.onPlayerPosition(this.getPlayerPosition());
       this.bridge.onLockedExit(exit);
     }
+    return true;
   }
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {

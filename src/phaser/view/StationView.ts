@@ -329,18 +329,18 @@ function paintPlatform(scene: Phaser.Scene, graphics: Phaser.GameObjects.Graphic
 
   if (stage >= 5) {
     graphics.fillStyle(stage >= 6 ? 0x879494 : 0x283846, 1);
-    graphics.fillRoundedRect(630, 198, 490, 238, 16);
+    graphics.fillRoundedRect(600, 466, 520, 166, 16);
     graphics.lineStyle(4, 0x71838a, 0.8);
-    graphics.strokeRoundedRect(630, 198, 490, 238, 16);
-    for (let x = 666; x < 1_090; x += 114) {
+    graphics.strokeRoundedRect(600, 466, 520, 166, 16);
+    for (let x = 636; x < 1_090; x += 114) {
       graphics.fillStyle(0x0b1724, 1);
-      graphics.fillRoundedRect(x, 235, 82, 96, 4);
+      graphics.fillRoundedRect(x, 492, 82, 68, 4);
       graphics.fillStyle(PALETTE.lamp, stage >= 6 ? 0.1 : 0.2);
-      graphics.fillRect(x + 5, 240, 72, 86);
+      graphics.fillRect(x + 5, 497, 72, 58);
     }
     graphics.fillStyle(PALETTE.lamp, 0.82);
-    graphics.fillCircle(654, 376, 8);
-    addLabel(scene, 875, 184, stage >= 6 ? "夜明けを待つ列車" : "行き先のない終電", 14);
+    graphics.fillCircle(622, 584, 8);
+    addLabel(scene, 860, 472, stage >= 6 ? "夜明けを待つ列車" : "行き先のない終電", 14);
   }
 
   graphics.fillStyle(0x111f2e, 1);

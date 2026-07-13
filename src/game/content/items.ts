@@ -46,7 +46,7 @@ export const LOST_ITEM_DEFINITIONS: readonly LostItemDefinition[] = [
     spawn: {
       areaId: "area_station_office",
       hotspotId: "office_refrigerator",
-      position: { x: 190, y: 205 },
+      position: { x: 190, y: 320 },
       availableFromStage: 1,
       requiresReturnedItemIds: ["item_red_umbrella"],
     },
@@ -81,7 +81,7 @@ export const LOST_ITEM_DEFINITIONS: readonly LostItemDefinition[] = [
     spawn: {
       areaId: "area_footbridge",
       hotspotId: "footbridge_cassette_bench",
-      position: { x: 318, y: 386 },
+      position: { x: 318, y: 410 },
       availableFromStage: 2,
       requiresReturnedItemIds: ["item_red_umbrella", "item_star_bento"],
     },
@@ -155,7 +155,7 @@ export const LOST_ITEM_DEFINITIONS: readonly LostItemDefinition[] = [
     spawn: {
       areaId: "area_waiting_room",
       hotspotId: "waiting_photo_booth_output",
-      position: { x: 944, y: 262 },
+      position: { x: 944, y: 282 },
       availableFromStage: 4,
       requiresReturnedItemIds: [
         "item_red_umbrella",
@@ -195,7 +195,7 @@ export const LOST_ITEM_DEFINITIONS: readonly LostItemDefinition[] = [
     spawn: {
       areaId: "area_concourse",
       hotspotId: "concourse_ticket_machine",
-      position: { x: 762, y: 202 },
+      position: { x: 772, y: 274 },
       availableFromStage: 5,
       requiresReturnedItemIds: [
         "item_red_umbrella",

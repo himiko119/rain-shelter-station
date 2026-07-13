@@ -22,6 +22,7 @@ import {
   selectStage,
 } from "./game/core";
 import type {
+  AreaId,
   EndingId,
   GameAction,
   GameSettings,
@@ -112,6 +113,8 @@ export class GameApplication {
   private saveTimer: number | null = null;
   private hintTimer: number | null = null;
   private disposed = false;
+  private suppressPersistence = false;
+  private devPanelCleanup: (() => void) | null = null;
 
   public constructor(root: HTMLElement) {
     this.ui = new AppUi(root);
@@ -196,6 +199,29 @@ export class GameApplication {
           freezeVisuals: (frozen) => this.explorationScene.setVisualsFrozen(frozen),
         });
       });
+    } else if (import.meta.env.DEV) {
+      void import("./game/debug/devPanel").then(({ mountDevPanel }) => {
+        if (this.disposed) return;
+        this.devPanelCleanup = mountDevPanel({
+          snapshot: () => this.store.getState(),
+          onWarp: (areaId: AreaId) => {
+            const area = getArea(areaId);
+            this.store.dispatch({ type: "enter-area", areaId, position: area.playerStart });
+            this.ui.closeDialogue();
+            this.ui.closeModal();
+            this.ui.showGame();
+            this.explorationScene.syncFromState(null);
+            this.renderHud();
+            this.syncInputGate();
+          },
+          onAdvanceHint: () => this.store.dispatch({ type: "advance-hint-time", elapsedMs: 90_000 }),
+          onResetRun: () => {
+            this.store.dispatch({ type: "reset-run" });
+            this.saveAdapter.clear();
+            this.renderTitle();
+          },
+        });
+      });
     }
   }
 
@@ -213,6 +239,8 @@ export class GameApplication {
     this.store.clearListeners();
     this.input.destroy();
     this.audio.destroy();
+    this.devPanelCleanup?.();
+    this.devPanelCleanup = null;
     this.game.destroy(true);
     this.ui.destroy();
   }
@@ -256,10 +284,9 @@ export class GameApplication {
   }
 
   private startNewGame(): void {
-    const previous = this.store.getState();
     this.ui.closeModal();
     const state = this.store.dispatch({ type: "start-new-game" });
-    this.explorationScene.syncFromState(previous);
+    this.explorationScene.syncFromState(null);
     this.ui.showGame();
     this.renderHud();
     this.syncInputGate();
@@ -343,7 +370,7 @@ export class GameApplication {
   private handleStateChange(state: GameState, previous: GameState, action: GameAction): void {
     this.ui.setTextSettings(state.settings);
     this.audio.updateSettings(state.settings);
-    this.explorationScene.syncFromState(previous);
+    if (action.type !== "start-new-game") this.explorationScene.syncFromState(previous);
     if (state.started) this.renderHud();
 
     const currentItemId = selectCurrentItemId(state);
@@ -362,11 +389,20 @@ export class GameApplication {
 
   private handleHotspot(hotspot: HotspotDefinition): void {
     if (this.ui.isBlockingWorldInput) return;
+    this.store.dispatch({
+      type: "move-player",
+      position: this.explorationScene.getPlayerPosition(),
+    });
     const state = this.store.getState();
     const itemProgress = hotspot.itemId
       ? !state.inventoryItemIds.includes(hotspot.itemId) && !state.returnedItemIds.includes(hotspot.itemId)
       : false;
-    const clueProgress = hotspot.clueId ? !state.foundClueIds.includes(hotspot.clueId) : false;
+    const hotspotClue = hotspot.clueId
+      ? CLUE_DEFINITIONS.find((clue) => clue.id === hotspot.clueId)
+      : undefined;
+    const clueProgress = hotspotClue
+      ? hotspotClue.itemId === selectCurrentItemId(state) && !state.foundClueIds.includes(hotspotClue.id)
+      : false;
     const firstInspection = !state.inspectedHotspotIds.includes(hotspot.id);
     this.store.dispatch({
       type: "inspect",
@@ -420,13 +456,20 @@ export class GameApplication {
       this.showDialogueById(hotspot.dialogId);
       return;
     }
+    const clue = CLUE_DEFINITIONS.find((candidate) => candidate.id === hotspot.clueId);
     const alreadyFound = this.store.getState().foundClueIds.includes(hotspot.clueId);
-    if (!alreadyFound) {
+    if (!alreadyFound && clue?.itemId === selectCurrentItemId(this.store.getState())) {
       this.store.dispatch({ type: "discover-clue", clueId: hotspot.clueId });
-      const clue = CLUE_DEFINITIONS.find((candidate) => candidate.id === hotspot.clueId);
-      if (clue) this.ui.showToast(`手がかり「${clue.title}」を記録した`);
+      if (this.store.getState().foundClueIds.includes(hotspot.clueId)) {
+        this.ui.showToast(`手がかり「${clue.title}」を記録した`);
+      }
     }
-    this.showDialogueById(alreadyFound ? hotspot.repeatDialogId ?? hotspot.dialogId : hotspot.dialogId);
+    this.showDialogueById(
+      alreadyFound ? hotspot.repeatDialogId ?? hotspot.dialogId : hotspot.dialogId,
+      undefined,
+      "ナギ",
+      clue?.observation,
+    );
   }
 
   private talkToOwner(hotspot: HotspotDefinition): void {
@@ -653,6 +696,11 @@ export class GameApplication {
           this.store.dispatch({ type: "update-settings", settings });
         },
         onDeleteSave: () => {
+          this.suppressPersistence = true;
+          if (this.saveTimer !== null) {
+            window.clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+          }
           this.saveAdapter.clear();
           window.location.reload();
         },
@@ -746,13 +794,14 @@ export class GameApplication {
       window.clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
+    if (this.suppressPersistence) return;
     if (this.saveAdapter.save(this.store.getState()) && showFeedback) {
       this.ui.showToast("自動セーブしました", 1_300);
     }
   }
 
   private readonly handleBeforeUnload = (): void => {
-    if (!this.disposed) this.saveAdapter.save(this.store.getState());
+    if (!this.disposed && !this.suppressPersistence) this.saveAdapter.save(this.store.getState());
   };
 }
 

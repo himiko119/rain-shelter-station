@@ -181,8 +181,9 @@ export class AppUi {
     }
   }
 
-  public setTextSettings(settings: Pick<GameSettings, "textSpeed" | "showAllText">): void {
+  public setTextSettings(settings: Pick<GameSettings, "textSpeed" | "showAllText" | "reducedMotion">): void {
     this.textSettings = settings;
+    this.shell.dataset.reducedMotion = String(settings.reducedMotion);
   }
 
   public showTitle(view: TitleView): void {
