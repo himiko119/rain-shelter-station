@@ -1,97 +1,131 @@
 # TECHNICAL DESIGN
 
-## スタック
+## スタックと出荷形態
 
-- Phaser 3: 2D世界、カメラ、衝突、図形、軽量エフェクト
-- TypeScript + Vite: 静的サイトとしての開発・ビルド
-- DOM + CSS: 会話、ノート、所持品、ポーズ、設定、記録、タッチ操作
-- Vitest: 純粋な進行ロジックとセーブ検証
-- Playwright: ブラウザ操作、Canvas込みスクリーンショット、console監視
-- ESLint: TypeScriptの静的検査
+- Phaser 3.90: 2D世界、Arcade Physics、カメラ、図形描画
+- TypeScript 6 + Vite 8: 型検査、開発サーバー、静的サイトbuild
+- DOM + CSS: タイトル、会話、ノート、所持品、ポーズ、設定、記録、タッチ操作
+- Web Audio: 雨と駅の環境音、UI・取得・記憶・結末の効果音
+- Vitest: 状態遷移、コンテンツ、入力、セーブの単体テスト
+- Playwright: 通常操作、セーブ、設定、3結末、モバイル、console/page errorのE2E
+- ESLint: TypeScriptを含む静的検査
 
-React、バックエンド、外部API、認証、課金、広告、解析は使用しない。
+React、バックエンド、外部API、認証、課金、広告、解析は使用しない。本番成果物は `dist/` の静的ファイルだけで動作する。
 
-## 責務分割
+## 実装構成
 
 ```text
 src/
+  main.ts                # DOMContentLoaded後にGameApplicationを生成
+  app.ts                 # Store、UI、Scene、入力、音、セーブのオーケストレーション
   game/
-    core/        # GameState、純粋なaction/reducer、導出selector
-    content/     # エリア、対象、忘れもの、会話、記憶、結末
-    input/       # 物理入力からInputActionへの変換
-    save/        # version、検証、移行、localStorage adapter
-    systems/     # ヒント、衝突用world query、audio
-    assets/      # manifestと安定キー
-    debug/       # e2e mode限定のnamed scenario bridge
+    content/             # stable ID付きのarea、owner、item、clue、dialog、memory、ending
+    core/                # GameState、pure reducer、selector、GameStore
+    input/               # 物理入力からInputActionへの変換
+    save/                # version付きvalidation、version 0 migration、localStorage adapter
+    systems/audio.ts     # Web Audioの生成と破棄
+    debug/               # F2 DEV panel、named scenario E2E bridge
   phaser/
-    scenes/      # BootScene、ExplorationScene
-    view/        # マップ、人物、雨、照明、カメラ
-    adapters/    # state/storeとsceneの接続
-  ui/            # DOM shell、dialog、notebook、menus、touch controls
-  styles/        # themeとresponsive layout
+    scenes/ExplorationScene.ts
+    view/StationView.ts
+  ui/                    # AppUiと表示用view model
+  styles/main.css        # テーマ、レスポンシブ、タッチUI
 ```
 
-`GameState` が唯一の進行ソースであり、Sprite、Scene、Camera、Tween、DOMを含めない。Phaserは状態スナップショットを描画し、入力アクションをstoreへ渡す。UIも同じstoreを購読する。
+Phaser Sceneは `ExplorationScene` の1つだけである。起動用SceneやScene専用adapterは置かず、`GameApplication` が作るbridgeを通して `GameStore` と接続する。`StationView` は外部画像を読み込まず、駅の5エリア、ナギ、乗客、雨、照明をPhaserの図形としてproceduralに生成する。
 
-## 状態
+## 実行時のデータフロー
 
-主な永続フィールド:
+```text
+Keyboard / Pointer / Touch
+          ↓
+      ActionInput ─────────────→ ExplorationScene（移動・近接調査）
+          ↓                               ↓ bridge callback
+     GameApplication ─────────────→ GameStore.dispatch(GameAction)
+          ↓                               ↓ pure reducer
+ DOM UI / Audio / Save ←──────────── GameState
+          ↓
+ ExplorationScene.syncFromState
+```
 
-- `saveVersion`、`revision`
+`GameState` が進行の唯一の真実源であり、Scene、Sprite、Camera、Tween、DOM、AudioNodeを含まない。状態変更は `GameStore.dispatch(GameAction)` または、正誤を判定して通常actionをdispatchする `GameStore.tryReturn` を通す。Storeはdispatch中に生じたactionをqueueに積み、listenerの再入から状態順序を守る。
+
+## 状態と進行
+
+永続化する主なフィールドは次の通り。
+
+- `saveVersion`、`revision`、`started`
 - `areaId`、`playerPosition`
-- `inventoryItemIds`、`foundClueIds`、`returnedItemIds`
-- `viewedMemoryIds`、`pendingMemoryId`
-- `hintTierByItem`、誤返却・停滞カウンター
-- `settings`、`viewedEndingIds`
+- `inventoryItemIds`、`foundClueIds`、`inspectedHotspotIds`
+- `returnedItemIds`、`viewedMemoryIds`、`pendingMemoryId`
+- `hintTierByItem`、`wrongAttemptsByItem`、停滞時間と調査回数
+- 導入・操作説明の閲覧状態、進行中／閲覧済み結末
+- 音量、ミュート、文字速度、一括表示、演出軽減の設定
 
-現在章、時計、開放エリア、天候、選択肢は返却済みIDからselectorで導出する。冗長なフラグを真実源にせず、破損しにくくする。
+章、駅時計、天候、開放エリア、現在の目的、選択可能な結末はselectorが返却順と記憶状態から導出する。6つの忘れものは固定順で進み、現在対象以外の取得・返却や、未解放エリアへの状態遷移をreducerとsave validatorの両方で拒否する。誤返却では所持品を残し、誤返却回数、同じ場所の反復調査、進行のない操作、経過時間から段階ヒントを解放する。
 
-状態更新は `dispatch(GameAction)` だけで行う。主なactionは移動、エリア移動、調査、アイテム取得、手がかり取得、返却試行、会話／記憶完了、ヒント進行、結末選択、設定変更、初期化である。
+## Phaser Sceneと描画更新
 
-## Scene
+`ExplorationScene` は次の責務だけを持つ。
 
-- `BootScene`: プログラムテクスチャ作成、初期化
-- `ExplorationScene`: 現在エリアの部屋を描画、Arcade衝突、カメラ、雨・照明、interaction hotspot
+- `StationView.paintArea` による現在エリアの描画
+- obstacleとプレイヤーのArcade衝突
+- キーボード／タッチ移動、Shift早足、クリック移動
+- hotspotの近接判定、クリック対象判定、出口判定
+- カメラ追従、雨・水面の軽量更新
+- 500ms間隔のプレイヤー位置同期
 
-部屋遷移時に表示オブジェクト、Collider、Tween、Timer、イベント購読を破棄する。状態はScene再作成から独立する。
+Sceneは `areaId`、進行stage、所持品数、発見済み手がかり数、`reducedMotion`、`started` のいずれかが変化した時にrestartする。これによりitem／clueのhotspot、乗客、出口、天候を現在stateから作り直す。shutdownではpointer listener、area visual、hotspot参照、player参照を破棄する。Scene内の表示オブジェクトはセーブ対象にしない。
+
+雨粒は屋内／屋外と演出軽減設定に応じた固定数で生成する。E2Eの画面安定化時はSceneのvisual updateだけを停止し、状態遷移には触れない。
 
 ## 入力
 
-`InputAction` は `move`、`interact`、`confirm`、`cancel`、`open-note`、`pause`、`dash`。Keyboard adapterはWASD／矢印、E／Enter／Space、Escape、N、Shiftを割り当てる。PointerとTouch adapterも同じactionを発火する。モーダル表示中は移動入力を止め、DOM側のフォーカスへ制御を渡す。
+`ActionInput` はキー、DOMボタン、ポインターを `move`、`dash`、`interact`、`confirm`、`cancel`、`open-note`、`open-inventory`、`pause` に変換する。キー割り当てはWASD／矢印、E／Enter／Space、Escape、N、I、左右Shiftである。タッチ方向パッドも同じheld stateを使うため、キーボードとゲームロジックを分岐させない。
 
-## DOM UI
+クリックした地点はScene座標に変換して移動先とする。hotspot付近のクリックは、遠ければ対象の手前へ移動し、近ければ調査callbackを発火する。モーダルや会話の表示中は `ActionInput` をmodal stateにし、世界移動と近接調査を受け付けない。
 
-UIはtext nodeと安全なDOM APIで生成し、不要な `innerHTML` を使わない。モーダルはフォーカストラップ、Escape、初期フォーカス、戻りフォーカスを持つ。通常時は目的チップ、時計、調査プロンプトだけを表示し、中央と下中央のプレイ空間を保護する。
+## DOM UIとアクセシビリティ
 
-390px級ではCanvasを16:9のまま収め、下部へ方向パッドとアクションボタンを置く。横スクロールを禁止し、safe-areaを考慮する。
+`AppUi` はDOM APIと `textContent` で要素を構築し、任意HTMLを挿入しない。タイトル、HUD、会話、ノート、所持品、ポーズ、設定、記録、記憶、結末、クレジット、確認画面、タッチ操作をlayerとして管理する。
 
-## セーブ
+会話またはモーダルを開くと、背後のtitle screenへ `inert` を設定する。世界入力を止める必要がある時はCanvas、HUD、touch layerにも `inert` を設定し、表示中のUIへ初期focusを移す。Escapeは会話送り／閉じる／ポーズへ文脈別に変換する。CSSはfocus-visible、safe-area、横スクロール抑止、1280×720と390×844のレイアウトを持つ。
 
-- キー: `rain-shelter-station.save.v1`
-- 閲覧済み結末と設定も同じ検証済みdocumentに保存
-- 取得・返却・記憶完了・エリア移動・設定変更・結末で自動保存
-- 読み込みはJSON、型、配列ID、数値範囲、versionを検証
-- 破損JSONと未来versionは初期状態へ安全に戻す
-- 既知の旧versionはmigration後に現行validatorを通す
-- 削除はDOM確認画面を経由する
+## セーブ境界
 
-## コンテンツとアセット
+- localStorage key: `rain-shelter-station.save.v1`
+- 現行schema: `saveVersion: 1`
+- 既知のversion 0: 現行形へmigrationした後、version 1 validatorで再検証
+- 保存前: state全体をvalidatorへ通し、不正stateのserializeを拒否
+- 読み込み時: JSON、primitive型、stable ID、配列の重複、数値範囲、進行順、エリア解放、記憶／結末整合性を検証
+- JSON破損、未知ID、不整合state、未来version、Storage API例外: 初期stateへfallback
+- future／破損データからfallbackしただけでは保存をdirtyにせず、明示的な状態変更がない終了時に元データを上書きしない
+- 削除: DOM確認画面を経てlocalStorage keyを削除し、page reloadで初期stateを生成
 
-全会話と調査文は安定ID付きデータに置く。`LostItemDef` は出現条件、場所、所有者、手がかり、誤返却、ヒント、記憶、返却段階を持つ。図形中心のため必須外部画像はなく、manifestはプログラムテクスチャ、音、将来の静的SVGを同一キーで扱う。
+移動、調査、ヒント時間は900msのdebounceで保存し、取得、返却、記憶、エリア移動、設定変更、結末などの重要actionは即時保存する。閲覧済み結末と設定はrun reset後も明示的な状態遷移に従って扱う。
+
+## コンテンツ
+
+エリア、所有者、忘れもの、手がかり、会話、記憶、結末は `src/game/content/` のstable ID付きデータで定義する。Sceneには長文会話や返却順を埋め込まない。hotspotのavailability条件もデータとして持ち、Sceneは現在stateに対して表示可否を評価する。
+
+外部画像・音声は読み込まないため、実行時asset pathは存在しない。描画は `StationView`、音は `AudioManager` のWeb Audio synthesisに集約する。
 
 ## 音
 
-Web Audioは初回ユーザー操作後にlazy初期化する。Audio managerは雨のloop、決定、取得、時計、記憶、結末を合成し、ambient/effect volumeとmuteを適用する。破棄時にOscillator、BufferSource、Gain、Timerを停止する。自動再生拒否は正常系として静かに処理する。
+`AudioManager` は最初のユーザーgesture後に `AudioContext` をlazy生成し、雨noise、駅の低いhum、決定、取得、時計、記憶、結末の音を合成する。ambient/effect volumeとmuteを個別に適用する。自動再生拒否や音声デバイス不在は無音fallbackとして扱う。
 
-## 開発・E2E分離
+同時効果音source数には上限を設ける。終了時はambient/effect sourceを停止し、Gain、Filter、Oscillator、BufferSourceを切断して `AudioContext` を閉じる。
 
-通常開発では状態を表示・操作できるdebug panelを `import.meta.env.DEV` のみで提供する。E2E bridgeは `DEV && MODE === "e2e"` の動的importだけで読み込み、任意partial stateではなく `umbrella-return-ready`、`ending-a-ready`、`ending-b-ready` 等のnamed scenarioだけを受け付ける。シナリオは通常action列で構築しvalidatorを通す。本番bundleにsentinelが残らないことを検査する。
+## 開発機能と本番分離
 
-## パフォーマンス・安全
+通常のVite開発modeでは `src/game/debug/devPanel.ts` を動的importする。F2で開閉し、現在revision、stage、area、位置、対象item、所持品、手がかり、返却、pending memory、endingを表示する。開放済みエリアへのwarp、ヒント時間+90秒、run初期化だけを提供する。
 
-- 雨粒を固定上限にし、狭い画面／演出軽減で減らす
-- 状態通知はrevision単位、部屋再描画はarea／stage変更時に限定
-- 文字列はtextContent相当で挿入
-- localStorageを信頼しない
-- APIキーを作らない
-- エラー境界で破損セーブをクラッシュへ波及させない
+`MODE === "e2e"` ではDEV panelの代わりに `src/game/debug/e2eBridge.ts` を動的importする。bridgeは `fresh-game`、`umbrella-return-ready`、`ending-a-ready`、`ending-b-ready` などのnamed scenarioだけを受け付け、任意partial state注入は提供しない。scenarioは通常action列から構築し、snapshot、idle待機、visual安定化をPlaywrightへ公開する。
+
+本番buildではどちらも到達不能になる。`scripts/verify-production-build.mjs` は `dist/assets/*.js` を走査し、E2E用 `__RAIN_SHELTER_E2E__` とDEV panel用 `__RAIN_SHELTER_DEV_PANEL__` の両sentinelが残っていれば失敗する。`npm run check` はbuild後にこの検査を実行する。
+
+## 検証境界
+
+Vitestはreducerの順序制約、誤返却とヒント、3結末、content参照整合性、入力のheld state、saveのround-trip・migration・破損fallbackを検証する。Playwrightは通常キー入力だけの最初の返却ルート、セーブ復元、設定、データ削除、3結末、390×844タッチUIをChromiumで検証し、page errorと重大なconsole errorを失敗として扱う。
+
+本番検証は `lint → typecheck → unit test → build → sentinel scan` の順で行う。ブラウザE2Eは専用e2e modeで別途実行し、本番bundleへbridgeを混入させない。
