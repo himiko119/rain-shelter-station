@@ -54,6 +54,7 @@ export class AppUi {
   private readonly hud: HTMLElement;
   private readonly areaLabel: HTMLSpanElement;
   private readonly clockLabel: HTMLTimeElement;
+  private readonly objectiveChip: HTMLElement;
   private readonly objectiveLabel: HTMLParagraphElement;
   private readonly prompt: HTMLDivElement;
   private readonly toast: HTMLDivElement;
@@ -100,10 +101,10 @@ export class AppUi {
     tools.append(this.noteButton, this.inventoryButton, this.pauseButton);
     this.hud.append(location, timePanel, tools);
 
-    const objective = element("aside", "objective-chip");
-    objective.append(element("span", "objective-chip__label", "いまの目的"));
+    this.objectiveChip = element("aside", "objective-chip");
+    this.objectiveChip.append(element("span", "objective-chip__label", "いまの目的"));
     this.objectiveLabel = element("p", "objective-chip__text", "駅員に話を聞こう");
-    objective.append(this.objectiveLabel);
+    this.objectiveChip.append(this.objectiveLabel);
 
     this.prompt = element("div", "interaction-prompt");
     this.prompt.hidden = true;
@@ -125,7 +126,7 @@ export class AppUi {
     this.shell.append(
       this.canvasHost,
       this.hud,
-      objective,
+      this.objectiveChip,
       this.prompt,
       this.toast,
       this.screenLayer,
@@ -755,6 +756,7 @@ export class AppUi {
   private syncBackgroundInteractivity(): void {
     const overlayOpen = !this.modalLayer.hidden || !this.dialogueLayer.hidden;
     const worldBlocked = overlayOpen || !this.screenLayer.hidden;
+    this.objectiveChip.hidden = worldBlocked || this.hud.hidden;
     this.screenLayer.toggleAttribute("inert", overlayOpen);
     this.canvasHost.toggleAttribute("inert", worldBlocked);
     this.hud.toggleAttribute("inert", worldBlocked);

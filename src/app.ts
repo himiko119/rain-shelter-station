@@ -114,6 +114,7 @@ export class GameApplication {
   private hintTimer: number | null = null;
   private disposed = false;
   private suppressPersistence = false;
+  private stateDirty = false;
   private devPanelCleanup: (() => void) | null = null;
 
   public constructor(root: HTMLElement) {
@@ -368,6 +369,7 @@ export class GameApplication {
   }
 
   private handleStateChange(state: GameState, previous: GameState, action: GameAction): void {
+    this.stateDirty = true;
     this.ui.setTextSettings(state.settings);
     this.audio.updateSettings(state.settings);
     if (action.type !== "start-new-game") this.explorationScene.syncFromState(previous);
@@ -799,13 +801,17 @@ export class GameApplication {
       this.saveTimer = null;
     }
     if (this.suppressPersistence) return;
-    if (this.saveAdapter.save(this.store.getState()) && showFeedback) {
-      this.ui.showToast("自動セーブしました", 1_300);
+    if (!this.stateDirty) return;
+    if (this.saveAdapter.save(this.store.getState())) {
+      this.stateDirty = false;
+      if (showFeedback) this.ui.showToast("自動セーブしました", 1_300);
     }
   }
 
   private readonly handleBeforeUnload = (): void => {
-    if (!this.disposed && !this.suppressPersistence) this.saveAdapter.save(this.store.getState());
+    if (!this.disposed && !this.suppressPersistence && this.stateDirty) {
+      this.saveAdapter.save(this.store.getState());
+    }
   };
 }
 
