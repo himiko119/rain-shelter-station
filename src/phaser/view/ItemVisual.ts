@@ -1,7 +1,8 @@
 import type Phaser from "phaser";
 
 import type { LostItemDefinition } from "../../game/content/types";
-import type { Point } from "../../game/core/types";
+import type { ItemId, Point } from "../../game/core/types";
+import { ITEM_TEXTURE_KEYS } from "./ArtV3TextureKeys";
 
 export type ItemVisualDefinition = LostItemDefinition["visual"];
 export type ItemVisualShape = ItemVisualDefinition["shape"];
@@ -255,6 +256,7 @@ export function drawItemShape(
 export function createWorldItemVisual(
   scene: Phaser.Scene,
   position: Point,
+  itemId: ItemId,
   visual: ItemVisualDefinition,
   options: WorldItemVisualOptions = {},
 ): Phaser.GameObjects.Container {
@@ -271,12 +273,25 @@ export function createWorldItemVisual(
   }
   children.push(art);
 
+  const textureKey = ITEM_TEXTURE_KEYS[itemId];
+  const staticImage = scene.textures.exists(textureKey)
+    ? scene.add.image(0, 0, textureKey)
+      .setName("item-art-v3-image")
+      .setDisplaySize(62, 62)
+    : null;
+  if (staticImage) {
+    art.setVisible(false);
+    children.push(staticImage);
+  }
+
   const container = scene.add.container(position.x, position.y, children);
   container.setName(`item-visual:${visual.shape}`);
   container.setSize(50, 50);
   container.setDepth(options.depth ?? position.y + 20);
   container.setScale(options.scale ?? 1);
   container.setAlpha(options.alpha ?? 1);
+  container.setData("itemId", itemId);
   container.setData("itemVisualShape", visual.shape);
+  container.setData("artSource", staticImage ? "art-v3" : "procedural");
   return container;
 }

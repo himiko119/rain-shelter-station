@@ -11,6 +11,7 @@ import {
   OWNER_DEFINITIONS,
   type DialogueDefinition,
   type DialogueLine,
+  type DialogueSpeaker,
   type HotspotDefinition,
 } from "./game/content";
 import {
@@ -76,6 +77,20 @@ function dialogueTone(line: DialogueLine | undefined): DialogueView["tone"] {
   return "passenger";
 }
 
+function dialoguePortraitMood(
+  definition: DialogueDefinition | null,
+  speakerId: DialogueSpeaker,
+): DialogueView["portraitMood"] {
+  const id = definition?.id ?? "";
+  if (id.includes("_correct") || id.includes("_returned")) {
+    return speakerId === "owner_nagi" ? "relieved" : "released";
+  }
+  if (id.includes("_wrong") || id.includes("_hint")) return "anxious";
+  if (id.includes("mirror") || id.includes("reflection")) return "remembering";
+  if (id.includes("acquire") || id.includes("found")) return "surprised";
+  return "normal";
+}
+
 function dialogueView(
   definition: DialogueDefinition | null,
   fallbackSpeaker = "ナギ",
@@ -83,15 +98,25 @@ function dialogueView(
   actions?: readonly MenuEntry[],
 ): DialogueView {
   if (!definition || definition.lines.length === 0) {
-    return { speaker: fallbackSpeaker, lines: [fallbackText], tone: "station", actions };
+    return {
+      speakerId: "station",
+      speaker: fallbackSpeaker,
+      lines: [fallbackText],
+      tone: "station",
+      portraitMood: "normal",
+      actions,
+    };
   }
   const first = definition.lines[0];
+  const speakerId = first?.speaker ?? "station";
   return {
+    speakerId,
     speaker: first?.name ?? fallbackSpeaker,
     lines: definition.lines.map((line, index) =>
       index === 0 || line.name === first?.name ? line.text : `${line.name}「${line.text}」`,
     ),
     tone: dialogueTone(first),
+    portraitMood: dialoguePortraitMood(definition, speakerId),
     actions,
   };
 }
@@ -146,7 +171,7 @@ export class GameApplication {
     };
     this.explorationScene = new ExplorationScene(bridge);
     this.game = new Phaser.Game({
-      type: Phaser.AUTO,
+      type: import.meta.env.MODE === "e2e" ? Phaser.CANVAS : Phaser.AUTO,
       parent: this.ui.canvasHost,
       width: 960,
       height: 540,
@@ -314,8 +339,10 @@ export class GameApplication {
     this.store.dispatch({ type: "mark-intro-seen" });
     this.showDialogue(
       {
+        speakerId: "owner_nagi",
         speaker: "ナギ",
         tone: "nagi",
+        portraitMood: "surprised",
         lines: [
           "雨……。ここは、どこ？　時計が午前0時で止まってる。",
           "名前は思い出せる。ナギ。それ以外は、霧の向こうみたいだ。",
@@ -537,6 +564,8 @@ export class GameApplication {
     const memory = memoryById(memoryId);
     this.ui.showMemory(
       {
+        memoryId,
+        itemId: memory.itemId,
         title: memory.title,
         lines: memory.beats.map((beat) => beat.text),
         accent: memory.beats[0]?.color,
@@ -557,8 +586,10 @@ export class GameApplication {
     const available = selectAvailableEndingIds(this.store.getState());
     if (available.length === 0) {
       this.showDialogue({
+        speakerId: "owner_nagi",
         speaker: "ナギ",
         tone: "nagi",
+        portraitMood: "anxious",
         lines: ["まだ選べない。ノートに残った記憶を、最後まで確かめよう。"],
       });
       return;

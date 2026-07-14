@@ -1,4 +1,5 @@
-import type { EndingId, GameSettings, ItemId } from "../game/core/types";
+import type { DialogueSpeaker } from "../game/content";
+import type { EndingId, GameSettings, ItemId, MemoryId } from "../game/core/types";
 
 export interface MenuEntry {
   readonly label: string;
@@ -26,9 +27,11 @@ export interface HudView {
 }
 
 export interface DialogueView {
+  readonly speakerId: DialogueSpeaker;
   readonly speaker: string;
   readonly lines: readonly string[];
   readonly tone?: "nagi" | "attendant" | "passenger" | "station";
+  readonly portraitMood?: "normal" | "anxious" | "surprised" | "remembering" | "relieved" | "released";
   readonly actions?: readonly MenuEntry[];
 }
 
@@ -53,6 +56,8 @@ export interface InventoryEntry {
 }
 
 export interface MemoryView {
+  readonly memoryId: MemoryId;
+  readonly itemId: ItemId;
   readonly title: string;
   readonly lines: readonly string[];
   readonly accent?: string;

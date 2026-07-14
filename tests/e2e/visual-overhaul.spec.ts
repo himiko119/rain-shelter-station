@@ -14,13 +14,16 @@ const runtime = globalThis as typeof globalThis & {
   readonly process?: { readonly env?: Readonly<Record<string, string | undefined>> };
 };
 const requestedPhase = runtime.process?.env?.VISUAL_PHASE;
+const requestedArtifactRoot = runtime.process?.env?.VISUAL_ARTIFACT_ROOT;
 const phase = requestedPhase ?? "after";
 
 if (phase !== "before" && phase !== "after") {
   throw new Error(`VISUAL_PHASE must be "before" or "after", received: ${phase}`);
 }
 
-const ARTIFACT_ROOT = requestedPhase ? `artifacts/visual-overhaul/${phase}` : null;
+const ARTIFACT_ROOT = requestedPhase
+  ? requestedArtifactRoot ?? `artifacts/visual-overhaul/${phase}`
+  : null;
 
 test.setTimeout(240_000);
 

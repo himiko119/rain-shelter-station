@@ -1,7 +1,18 @@
 import Phaser from "phaser";
 
+import { getAreaStaticArtKey } from "../../game/assets";
 import { OWNER_DEFINITIONS } from "../../game/content";
 import type { AreaId, Facing, OwnerId, Point } from "../../game/core/types";
+import {
+  NAGI_SPRITE_FRAME_COUNTS,
+  NAGI_SPRITE_TEXTURE_KEYS,
+  PASSENGER_SPRITE_TEXTURE_KEYS,
+  getNagiActionAnimationKey,
+  getNagiAnimationKey,
+  getNagiLocomotionTextureKey,
+  getPassengerIdleAnimationKey,
+  type NagiActionAnimation,
+} from "./ArtV3TextureKeys";
 
 export const WORLD_WIDTH = 1_120;
 export const WORLD_HEIGHT = 630;
@@ -722,6 +733,16 @@ export function paintArea(
           ? drawFootbridge(context)
           : drawPlatform(context);
 
+  const staticBackgroundKey = getAreaStaticArtKey(areaId, stage);
+  const staticBackground = scene.textures.exists(staticBackgroundKey)
+    ? scene.add.image(0, 0, staticBackgroundKey)
+      .setName(`static-background:${areaId}`)
+      .setOrigin(0)
+      .setDisplaySize(WORLD_WIDTH, WORLD_HEIGHT)
+      .setDepth(-100)
+    : null;
+  if (staticBackground) graphics.setVisible(false);
+
   const farRain = scene.add.graphics().setDepth(1);
   const lampGlow = scene.add.graphics().setDepth(2);
   const puddle = scene.add.graphics().setDepth(3);
@@ -774,6 +795,7 @@ export function paintArea(
   return {
     update,
     destroy: () => {
+      staticBackground?.destroy();
       graphics.destroy();
       farRain.destroy();
       lampGlow.destroy();
@@ -784,7 +806,59 @@ export function paintArea(
   };
 }
 
-export function createNagi(scene: Phaser.Scene, position: Point): Phaser.GameObjects.Container {
+const NAGI_SPRITE_NAME = "nagi-art-v3-sprite";
+const NAGI_ACTION_ACTIVE_DATA_KEY = "nagiArtV3ActionActive";
+const NAGI_ACTION_UNTIL_DATA_KEY = "nagiArtV3ActionUntil";
+
+function ensureNagiLocomotionAnimations(scene: Phaser.Scene): void {
+  for (const motion of ["idle", "walk"] as const) {
+    const frameCount = NAGI_SPRITE_FRAME_COUNTS[motion];
+    const frameRate = motion === "walk" ? 9 : 3;
+    for (const facing of ["down", "up", "left", "right"] as const) {
+      const textureKey = NAGI_SPRITE_TEXTURE_KEYS[motion][facing];
+      const animationKey = getNagiAnimationKey(motion, facing);
+      if (!scene.textures.exists(textureKey) || scene.anims.exists(animationKey)) continue;
+      scene.anims.create({
+        key: animationKey,
+        frames: scene.anims.generateFrameNumbers(textureKey, {
+          start: 0,
+          end: frameCount - 1,
+        }),
+        frameRate,
+        repeat: -1,
+      });
+    }
+  }
+}
+
+function ensureNagiActionAnimations(scene: Phaser.Scene): void {
+  for (const action of ["inspect", "acquire"] as const) {
+    const textureKey = NAGI_SPRITE_TEXTURE_KEYS[action];
+    const animationKey = getNagiActionAnimationKey(action);
+    if (!scene.textures.exists(textureKey) || scene.anims.exists(animationKey)) continue;
+    scene.anims.create({
+      key: animationKey,
+      frames: scene.anims.generateFrameNumbers(textureKey, {
+        start: 0,
+        end: NAGI_SPRITE_FRAME_COUNTS[action] - 1,
+      }),
+      frameRate: action === "inspect" ? 8 : 10,
+      repeat: 0,
+    });
+  }
+}
+
+function getNagiSprite(
+  container: Phaser.GameObjects.Container,
+): Phaser.GameObjects.Sprite | null {
+  return container.getByName(NAGI_SPRITE_NAME) as Phaser.GameObjects.Sprite | null;
+}
+
+export function createNagi(
+  scene: Phaser.Scene,
+  position: Point,
+  reducedMotion = false,
+): Phaser.GameObjects.Container {
   const shadow = scene.add.ellipse(0, 19, 42, 15, PALETTE.shadow, 0.5).setName("nagi-shadow");
   const leftLeg = scene.add.rectangle(-7, 13, 8, 21, 0x18263c, 1).setOrigin(0.5, 0).setName("nagi-left-leg");
   const rightLeg = scene.add.rectangle(7, 13, 8, 21, 0x18263c, 1).setOrigin(0.5, 0).setName("nagi-right-leg");
@@ -823,7 +897,25 @@ export function createNagi(scene: Phaser.Scene, position: Point): Phaser.GameObj
     eye,
     hairClip,
   ]).setName("nagi-visual");
-  const container = scene.add.container(position.x, position.y, [shadow, visual]);
+  const staticSprite = scene.textures.exists(NAGI_SPRITE_TEXTURE_KEYS.idle.down)
+    ? scene.add.sprite(0, 40, NAGI_SPRITE_TEXTURE_KEYS.idle.down, 0)
+      .setName(NAGI_SPRITE_NAME)
+      .setOrigin(0.5, 1)
+      .setScale(0.82)
+    : null;
+  if (staticSprite) {
+    ensureNagiLocomotionAnimations(scene);
+    ensureNagiActionAnimations(scene);
+    visual.setVisible(false);
+    if (!reducedMotion) {
+      const idleAnimation = getNagiAnimationKey("idle", "down");
+      if (scene.anims.exists(idleAnimation)) staticSprite.play(idleAnimation);
+    }
+  }
+
+  const children: Phaser.GameObjects.GameObject[] = [shadow, visual];
+  if (staticSprite) children.push(staticSprite);
+  const container = scene.add.container(position.x, position.y, children);
   container.setName("nagi");
   container.setDepth(position.y + 40);
   container.setSize(28, 32);
@@ -842,6 +934,44 @@ export function setNagiMotion(
   time: number,
   reducedMotion: boolean,
 ): void {
+  const staticSprite = getNagiSprite(container);
+  if (staticSprite) {
+    const actionActive = staticSprite.getData(NAGI_ACTION_ACTIVE_DATA_KEY) === true;
+    const actionUntil = staticSprite.getData(NAGI_ACTION_UNTIL_DATA_KEY) as number | undefined;
+    if (actionActive && (actionUntil === undefined || time < actionUntil)) return;
+    if (actionActive) {
+      staticSprite.setData(NAGI_ACTION_ACTIVE_DATA_KEY, false);
+      staticSprite.setData(NAGI_ACTION_UNTIL_DATA_KEY, undefined);
+    }
+
+    const motion = moving ? "walk" : "idle";
+    const requestedTextureKey = getNagiLocomotionTextureKey(facing, moving);
+    const facingIdleTextureKey = getNagiLocomotionTextureKey(facing, false);
+    const textureKey = container.scene.textures.exists(requestedTextureKey)
+      ? requestedTextureKey
+      : container.scene.textures.exists(facingIdleTextureKey)
+        ? facingIdleTextureKey
+        : NAGI_SPRITE_TEXTURE_KEYS.idle.down;
+    if (reducedMotion) {
+      staticSprite.anims.stop();
+      staticSprite.setTexture(textureKey, 0);
+    } else {
+      const animationKey = getNagiAnimationKey(motion, facing);
+      if (
+        textureKey === requestedTextureKey
+        && container.scene.anims.exists(animationKey)
+      ) {
+        staticSprite.play(animationKey, true);
+      } else {
+        staticSprite.anims.stop();
+        staticSprite.setTexture(textureKey, 0);
+      }
+    }
+    staticSprite.setData("facing", facing);
+    staticSprite.setData("moving", moving);
+    return;
+  }
+
   const visual = container.getByName("nagi-visual") as Phaser.GameObjects.Container | null;
   if (!visual) return;
   const direction = facing === "left" ? -1 : 1;
@@ -861,10 +991,80 @@ export function setNagiMotion(
   visual.setAlpha(facing === "up" ? 0.97 : 1);
 }
 
+export function playNagiAction(
+  container: Phaser.GameObjects.Container,
+  action: NagiActionAnimation,
+  reducedMotion: boolean,
+): boolean {
+  const staticSprite = getNagiSprite(container);
+  if (!staticSprite) return false;
+  const textureKey = NAGI_SPRITE_TEXTURE_KEYS[action];
+  if (!container.scene.textures.exists(textureKey)) return false;
+
+  staticSprite.setData(NAGI_ACTION_ACTIVE_DATA_KEY, true);
+  if (reducedMotion) {
+    staticSprite.anims.stop();
+    staticSprite.setTexture(
+      textureKey,
+      Math.min(2, NAGI_SPRITE_FRAME_COUNTS[action] - 1),
+    );
+    staticSprite.setData(
+      NAGI_ACTION_UNTIL_DATA_KEY,
+      container.scene.time.now + 180,
+    );
+    return true;
+  }
+
+  const animationKey = getNagiActionAnimationKey(action);
+  if (!container.scene.anims.exists(animationKey)) {
+    staticSprite.setTexture(textureKey, 0);
+    staticSprite.setData(
+      NAGI_ACTION_UNTIL_DATA_KEY,
+      container.scene.time.now + 180,
+    );
+    return true;
+  }
+
+  staticSprite.setData(NAGI_ACTION_UNTIL_DATA_KEY, undefined);
+  staticSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+    if (!staticSprite.active) return;
+    staticSprite.setData(NAGI_ACTION_ACTIVE_DATA_KEY, false);
+    staticSprite.setData(NAGI_ACTION_UNTIL_DATA_KEY, undefined);
+  });
+  staticSprite.play(animationKey, true);
+  return true;
+}
+
 function ownerDefinition(ownerId: OwnerId) {
   const owner = OWNER_DEFINITIONS.find((candidate) => candidate.id === ownerId);
   if (!owner) throw new Error(`Unknown owner visual: ${ownerId}`);
   return owner;
+}
+
+function createPassengerStaticSprite(
+  scene: Phaser.Scene,
+  ownerId: OwnerId,
+  reducedMotion: boolean,
+): Phaser.GameObjects.Sprite | null {
+  const textureKey = PASSENGER_SPRITE_TEXTURE_KEYS[ownerId];
+  if (!textureKey || !scene.textures.exists(textureKey)) return null;
+
+  const sprite = scene.add.sprite(0, 43, textureKey, 0)
+    .setName("passenger-art-v3-sprite")
+    .setOrigin(0.5, 1)
+    .setScale(0.82);
+  const animationKey = getPassengerIdleAnimationKey(ownerId);
+  if (!scene.anims.exists(animationKey)) {
+    scene.anims.create({
+      key: animationKey,
+      frames: scene.anims.generateFrameNumbers(textureKey, { start: 0, end: 2 }),
+      frameRate: 3,
+      repeat: -1,
+    });
+  }
+  if (!reducedMotion) sprite.play(animationKey);
+  sprite.setData("ownerId", ownerId);
+  return sprite;
 }
 
 export function createPassenger(
@@ -872,6 +1072,7 @@ export function createPassenger(
   ownerId: OwnerId,
   position: Point,
   returned: boolean,
+  reducedMotion = false,
 ): Phaser.GameObjects.Container {
   const owner = ownerDefinition(ownerId);
   const bodyColor = Phaser.Display.Color.HexStringToColor(owner.visual.silhouetteColor).color;
@@ -961,14 +1162,20 @@ export function createPassenger(
       break;
   }
 
+  const staticSprite = createPassengerStaticSprite(scene, ownerId, reducedMotion);
+  if (staticSprite) visual.setVisible(false);
   const visualContainer = scene.add.container(0, 0, [visual]).setScale(1, heightScale);
   if (returned) {
     const relief = scene.add.star(-21, -31, 4, 2, 6, PALETTE.lamp, 0.85);
     visualContainer.add(relief);
   }
-  const container = scene.add.container(position.x, position.y, [shadow, warmHalo, visualContainer]);
+  const children: Phaser.GameObjects.GameObject[] = [shadow, warmHalo, visualContainer];
+  if (staticSprite) children.push(staticSprite);
+  const container = scene.add.container(position.x, position.y, children);
   container.setName(`passenger:${ownerId}`);
   container.setDepth(position.y + 35);
+  container.setData("ownerId", ownerId);
+  container.setData("artSource", staticSprite ? "art-v3" : "procedural");
   return container;
 }
 
