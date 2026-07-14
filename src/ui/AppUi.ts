@@ -21,6 +21,50 @@ const TYPE_SPEED_MS: Readonly<Record<GameSettings["textSpeed"], number>> = {
   instant: 0,
 };
 
+type MemoryPresentation = MemoryView & {
+  readonly visual?: string;
+  readonly color?: string;
+};
+
+type PortraitKind =
+  | "nagi"
+  | "attendant"
+  | "child"
+  | "commuter"
+  | "listener"
+  | "student"
+  | "youth"
+  | "station";
+
+type ToastTone = "default" | "item" | "clue" | "return" | "save";
+
+const MEMORY_ITEM_BY_TITLE: Readonly<Record<string, InventoryEntry["itemId"]>> = {
+  "明かりの下の星": "item_red_umbrella",
+  "眠っていた朝": "item_star_bento",
+  "町を持ち歩く音": "item_cassette_player",
+  "余白の『またね』": "item_silver_hairclip",
+  "写真の続き": "item_faded_photo_sticker",
+  "名前のある行き先": "item_blank_ticket",
+};
+
+const MEMORY_CAPTION_BY_ITEM: Readonly<Record<InventoryEntry["itemId"], string>> = {
+  item_red_umbrella: "赤い傘に残る、白い星の約束",
+  item_star_bento: "蓋の内側で待っていた、朝の言葉",
+  item_cassette_player: "四拍の雨をしまった、小さな機械",
+  item_silver_hairclip: "銀杏の光を拾う、銀色の髪留め",
+  item_faded_photo_sticker: "書きかけの続きを残した、色あせた写真",
+  item_blank_ticket: "まだ行き先を書ける、名前のない切符",
+};
+
+const ITEM_FALLBACK_BY_ID: Readonly<Record<InventoryEntry["itemId"], string>> = {
+  item_red_umbrella: "☆",
+  item_star_bento: "✦",
+  item_cassette_player: "▶",
+  item_silver_hairclip: "K",
+  item_faded_photo_sticker: "☾",
+  item_blank_ticket: "→",
+};
+
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -38,12 +82,148 @@ function button(entry: MenuEntry): HTMLButtonElement {
   control.disabled = entry.disabled ?? false;
   if (entry.primary) control.classList.add("menu-button--primary");
   if (entry.tone && entry.tone !== "default") control.classList.add(`menu-button--${entry.tone}`);
+  const intent = menuIntent(entry.label);
+  if (intent) control.dataset.intent = intent;
 
   const label = element("span", "menu-button__label", entry.label);
   control.append(label);
   if (entry.detail) control.append(element("small", "menu-button__detail", entry.detail));
   control.addEventListener("click", () => entry.onSelect());
   return control;
+}
+
+function menuIntent(label: string): string | null {
+  if (label.includes("返してみる")) return "return-item";
+  if (label.includes("終電に乗る")) return "last-train";
+  if (label.includes("始発を待つ")) return "first-train";
+  if (label.includes("ここに残る")) return "rain-shelter";
+  if (label.includes("もう少し駅を調べる")) return "keep-searching";
+  return null;
+}
+
+function portraitKind(view: DialogueView): PortraitKind {
+  const speaker = view.speaker;
+  if (view.tone === "nagi" || speaker.includes("ナギ") || speaker.includes("鏡")) return "nagi";
+  if (view.tone === "attendant" || speaker.includes("駅員")) return "attendant";
+  if (speaker.includes("長靴") || speaker.includes("子")) return "child";
+  if (speaker.includes("鞄") || speaker.includes("通勤")) return "commuter";
+  if (speaker.includes("老人") || speaker.includes("耳を澄ます")) return "listener";
+  if (speaker.includes("学生") || speaker.includes("本を抱く")) return "student";
+  if (speaker.includes("青年") || speaker.includes("月のピン")) return "youth";
+  return view.tone === "passenger" ? "commuter" : "station";
+}
+
+function isResolutionDialogue(view: DialogueView): boolean {
+  const copy = view.lines.join(" ");
+  return /ありがとう|返して|戻ってきた|わたしの|私の|僕の|俺の/u.test(copy);
+}
+
+function toastTone(message: string): ToastTone {
+  if (/拾った|手に入れ/u.test(message)) return "item";
+  if (/手がかり|記録した|ヒント/u.test(message)) return "clue";
+  if (/返した|返却|手元に戻った/u.test(message)) return "return";
+  if (/保存|セーブ/u.test(message)) return "save";
+  return "default";
+}
+
+function notebookSectionKind(title: string): string {
+  if (title.includes("目的")) return "objective";
+  if (title.includes("忘れもの")) return "items";
+  if (title.includes("手がかり")) return "clues";
+  if (title.includes("記憶")) return "memories";
+  return "notes";
+}
+
+function notebookStamp(title: string): string {
+  const kind = notebookSectionKind(title);
+  if (kind === "objective") return "現在地";
+  if (kind === "items") return "拾得物";
+  if (kind === "clues") return "照合済";
+  if (kind === "memories") return "記憶録";
+  return "雨ノ間";
+}
+
+function memoryItemId(view: MemoryPresentation): InventoryEntry["itemId"] {
+  const mapped = MEMORY_ITEM_BY_TITLE[view.title];
+  if (mapped) return mapped;
+  const source = `${view.visual ?? ""} ${view.title} ${view.lines.join(" ")}`;
+  if (/傘|白い星/u.test(source)) return "item_red_umbrella";
+  if (/弁当|台所|海苔/u.test(source)) return "item_star_bento";
+  if (/カセット|録音|四拍/u.test(source)) return "item_cassette_player";
+  if (/髪留め|銀杏|またね/u.test(source)) return "item_silver_hairclip";
+  if (/写真|三日月|AM-042/u.test(source)) return "item_faded_photo_sticker";
+  return "item_blank_ticket";
+}
+
+function createItemSketch(
+  itemId: InventoryEntry["itemId"],
+  fallback: string,
+  className = "item-sketch",
+): HTMLSpanElement {
+  const visual = element("span", className);
+  visual.dataset.itemId = itemId;
+  visual.setAttribute("aria-hidden", "true");
+  visual.append(
+    element("span", "item-sketch__shape"),
+    element("span", "item-sketch__detail"),
+    element("span", "item-sketch__fallback", fallback),
+  );
+  return visual;
+}
+
+function createPortrait(kind: PortraitKind): HTMLDivElement {
+  const portrait = element("div", "dialogue-portrait");
+  portrait.dataset.portrait = kind;
+  portrait.setAttribute("aria-hidden", "true");
+  const figure = element("span", "dialogue-portrait__figure");
+  figure.append(
+    element("span", "dialogue-portrait__body"),
+    element("span", "dialogue-portrait__head"),
+    element("span", "dialogue-portrait__hair"),
+    element("span", "dialogue-portrait__accessory"),
+  );
+  portrait.append(element("span", "dialogue-portrait__glow"), figure);
+  return portrait;
+}
+
+function createTitleAtmosphere(): HTMLDivElement {
+  const atmosphere = element("div", "title-atmosphere");
+  atmosphere.setAttribute("aria-hidden", "true");
+  atmosphere.append(
+    element("span", "title-atmosphere__window"),
+    element("span", "title-atmosphere__lamp"),
+    element("span", "title-atmosphere__bench"),
+    element("span", "title-atmosphere__umbrella"),
+    element("span", "title-atmosphere__reflection"),
+  );
+  return atmosphere;
+}
+
+function createFinalChoiceVisual(): HTMLDivElement {
+  const visual = element("div", "final-choice-visual");
+  visual.setAttribute("aria-hidden", "true");
+  visual.append(
+    element("span", "final-choice-visual__sky"),
+    element("span", "final-choice-visual__lamp"),
+    element("span", "final-choice-visual__train"),
+    element("span", "final-choice-visual__platform"),
+    element("span", "final-choice-visual__rails"),
+  );
+  return visual;
+}
+
+function createEndingVisual(): HTMLDivElement {
+  const visual = element("div", "ending-visual");
+  visual.setAttribute("aria-hidden", "true");
+  visual.append(
+    element("span", "ending-visual__sky"),
+    element("span", "ending-visual__lamp"),
+    element("span", "ending-visual__train"),
+    element("span", "ending-visual__platform"),
+    element("span", "ending-visual__traveler"),
+    element("span", "ending-visual__rain"),
+  );
+  return visual;
 }
 
 export class AppUi {
@@ -221,7 +401,7 @@ export class AppUi {
       }),
     );
     panel.append(menu, element("p", "title-panel__controls", "移動 WASD / 矢印 · 調べる E · ノート N"));
-    this.screenLayer.append(panel);
+    this.screenLayer.append(createTitleAtmosphere(), panel);
     queueMicrotask(() => menu.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus());
   }
 
@@ -252,9 +432,13 @@ export class AppUi {
 
   public showToast(message: string, duration = 2_600): void {
     if (this.toastTimer !== null) window.clearTimeout(this.toastTimer);
-    this.toast.textContent = message;
+    const tone = toastTone(message);
+    this.toast.className = `toast toast--${tone}`;
+    this.toast.dataset.tone = tone;
+    const seal = element("span", "toast__seal");
+    seal.setAttribute("aria-hidden", "true");
+    this.toast.replaceChildren(seal, element("span", "toast__message", message));
     this.toast.hidden = false;
-    this.toast.classList.remove("toast--leave");
     this.toastTimer = window.setTimeout(() => {
       this.toast.classList.add("toast--leave");
       this.toastTimer = window.setTimeout(() => {
@@ -271,9 +455,11 @@ export class AppUi {
     this.dialogueLayer.setAttribute("aria-modal", "true");
     this.dialogueLayer.tabIndex = -1;
     this.syncBackgroundInteractivity();
+    const portraitIdentity = portraitKind(view);
     this.dialogueLayer.className = `dialogue-layer dialogue-layer--${view.tone ?? "station"}`;
-    const portrait = element("div", "dialogue-portrait");
-    portrait.setAttribute("aria-hidden", "true");
+    this.dialogueLayer.dataset.portrait = portraitIdentity;
+    if (isResolutionDialogue(view)) this.dialogueLayer.classList.add("dialogue-layer--resolution");
+    const portrait = createPortrait(portraitIdentity);
     const panel = element("section", "dialogue-panel");
     panel.setAttribute("aria-live", "polite");
     const speaker = element("h2", "dialogue-panel__speaker", view.speaker);
@@ -354,14 +540,22 @@ export class AppUi {
 
   public showMenu(title: string, subtitle: string, entries: readonly MenuEntry[], onClose: () => void): void {
     const content = element("div", "modal-card__content menu-list");
+    const isFinalChoice = title === "最後の選択";
+    if (isFinalChoice) {
+      content.classList.add("menu-list--final-choice");
+      content.append(createFinalChoiceVisual());
+    }
     for (const entry of entries) content.append(button(entry));
-    this.openModal(title, subtitle, content, onClose);
+    this.openModal(title, subtitle, content, onClose, isFinalChoice ? "modal-card--final-choice" : "");
   }
 
   public showNotebook(sections: readonly NoteSection[], onClose: () => void): void {
     const content = element("div", "notebook");
     const tabs = element("div", "notebook__tabs");
+    tabs.setAttribute("role", "tablist");
+    tabs.setAttribute("aria-label", "ノートの見出し");
     const pages = element("div", "notebook__pages");
+    const notebookId = String(Date.now());
 
     const activate = (index: number): void => {
       tabs.querySelectorAll("button").forEach((control, controlIndex) => {
@@ -377,16 +571,29 @@ export class AppUi {
       const tab = element("button", "notebook__tab", section.title);
       tab.type = "button";
       tab.setAttribute("role", "tab");
+      tab.id = `notebook-tab-${notebookId}-${String(index)}`;
+      tab.setAttribute("aria-controls", `notebook-page-${notebookId}-${String(index)}`);
       tab.addEventListener("click", () => activate(index));
       tabs.append(tab);
       const page = element("section", "notebook__page");
       page.setAttribute("role", "tabpanel");
+      page.id = `notebook-page-${notebookId}-${String(index)}`;
+      page.setAttribute("aria-labelledby", tab.id);
+      page.dataset.section = notebookSectionKind(section.title);
+      const marginStamp = element("span", "notebook__margin-stamp", notebookStamp(section.title));
+      marginStamp.setAttribute("aria-hidden", "true");
+      page.append(marginStamp);
       if (section.entries.length === 0) page.append(element("p", "empty-copy", "まだ書かれていない。"));
       for (const entry of section.entries) {
         const article = element("article", "note-entry");
         if (entry.muted) article.classList.add("note-entry--muted");
+        if (entry.marker) article.dataset.marker = entry.marker;
         const heading = element("h3", "note-entry__title");
-        if (entry.marker) heading.append(element("span", "note-entry__marker", entry.marker));
+        if (entry.marker) {
+          const marker = element("span", "note-entry__marker", entry.marker);
+          marker.setAttribute("aria-hidden", "true");
+          heading.append(marker);
+        }
         heading.append(document.createTextNode(entry.title));
         article.append(heading, element("p", "note-entry__body", entry.body));
         page.append(article);
@@ -394,17 +601,25 @@ export class AppUi {
       pages.append(page);
     });
     content.append(tabs, pages);
-    this.openModal("ナギのノート", "拾った言葉を、忘れないように。", content, onClose, "modal-card--wide");
+    this.openModal(
+      "ナギのノート",
+      "拾った言葉を、忘れないように。",
+      content,
+      onClose,
+      "modal-card--wide modal-card--notebook",
+    );
     activate(0);
   }
 
   public showInventory(entries: readonly InventoryEntry[], onClose: () => void): void {
     const content = element("div", "inventory-grid");
+    content.dataset.itemCount = String(entries.length);
     if (entries.length === 0) content.append(element("p", "empty-copy", "手元には、まだ何もない。"));
     for (const entry of entries) {
       const item = element("article", "inventory-card");
-      if (entry.returned) item.classList.add("inventory-card--returned");
-      item.append(element("span", "inventory-card__symbol", entry.symbol));
+      item.dataset.itemId = entry.itemId;
+      item.classList.add(entry.returned ? "inventory-card--returned" : "inventory-card--held");
+      item.append(createItemSketch(entry.itemId, entry.symbol, "inventory-card__symbol item-sketch"));
       const copy = element("div", "inventory-card__copy");
       copy.append(
         element("h3", "inventory-card__name", entry.name),
@@ -412,9 +627,14 @@ export class AppUi {
         element("span", "inventory-card__state", entry.returned ? "返却済み" : "所持中"),
       );
       item.append(copy);
+      if (entry.returned) {
+        const stamp = element("span", "inventory-card__stamp", "返");
+        stamp.setAttribute("aria-hidden", "true");
+        item.append(stamp);
+      }
       content.append(item);
     }
-    this.openModal("所持品", "拾ったものは、なくならない。", content, onClose);
+    this.openModal("所持品", "拾ったものは、なくならない。", content, onClose, "modal-card--inventory");
   }
 
   public showControls(onClose: () => void): void {
@@ -446,7 +666,13 @@ export class AppUi {
       },
     });
     content.append(start);
-    this.openModal("操作方法", "光る場所へ近づいて、調べてください。", content, onClose, "modal-card--wide");
+    this.openModal(
+      "操作方法",
+      "光る場所へ近づいて、調べてください。",
+      content,
+      onClose,
+      "modal-card--wide modal-card--controls",
+    );
   }
 
   public showSettings(
@@ -498,34 +724,56 @@ export class AppUi {
       danger.append(deleteButton);
       form.append(danger);
     }
-    this.openModal("設定", "いつでも、自分に合う読み方へ。", form, onClose);
+    this.openModal("設定", "いつでも、自分に合う読み方へ。", form, onClose, "modal-card--settings");
   }
 
   public showRecords(entries: readonly RecordEntry[], onClose: () => void): void {
     const content = element("div", "records-grid");
     for (const entry of entries) {
       const card = element("article", "record-card");
+      card.dataset.endingId = entry.endingId;
       if (!entry.unlocked) card.classList.add("record-card--locked");
+      const scene = element("span", "record-card__scene");
+      scene.setAttribute("aria-hidden", "true");
       card.append(
+        scene,
         element("span", "record-card__label", entry.unlocked ? entry.label : "未記録"),
         element("h3", "record-card__title", entry.unlocked ? entry.title : "まだ見ていない結末"),
         element("p", "record-card__summary", entry.unlocked ? entry.summary : "雨の向こうに、別の選択が残っている。"),
       );
       content.append(card);
     }
-    this.openModal("エンディング記録", "一度選んだ行き先は、ここに残る。", content, onClose);
+    this.openModal(
+      "エンディング記録",
+      "一度選んだ行き先は、ここに残る。",
+      content,
+      onClose,
+      "modal-card--records",
+    );
   }
 
-  public showMemory(view: MemoryView, onComplete: () => void): void {
+  public showMemory(view: MemoryPresentation, onComplete: () => void): void {
     this.closeDialogue();
     this.closeModal();
     this.screenLayer.hidden = false;
     this.syncBackgroundInteractivity();
     this.screenLayer.className = "screen-layer screen-layer--memory";
-    this.screenLayer.style.setProperty("--memory-accent", view.accent ?? "#f2a77e");
+    const itemId = memoryItemId(view);
+    this.screenLayer.dataset.memoryItem = itemId;
+    this.screenLayer.style.setProperty("--memory-accent", view.color ?? view.accent ?? "#d68f7c");
     this.screenLayer.replaceChildren();
     const card = element("main", "memory-scene");
-    card.append(element("span", "memory-scene__label", "MEMORY"), element("h1", "memory-scene__title", view.title));
+    card.dataset.memoryItem = itemId;
+    const visual = element("figure", "memory-scene__visual");
+    visual.append(
+      createItemSketch(itemId, ITEM_FALLBACK_BY_ID[itemId], "memory-item-sketch item-sketch"),
+      element("figcaption", "memory-scene__visual-caption", view.visual ?? MEMORY_CAPTION_BY_ITEM[itemId]),
+    );
+    card.append(
+      visual,
+      element("span", "memory-scene__label", "MEMORY"),
+      element("h1", "memory-scene__title", view.title),
+    );
     const line = element("p", "memory-scene__line");
     const progress = element("div", "memory-scene__progress");
     view.lines.forEach((_value, index) => progress.append(element("span", index === 0 ? "is-active" : undefined)));
@@ -561,19 +809,23 @@ export class AppUi {
     this.screenLayer.hidden = false;
     this.syncBackgroundInteractivity();
     this.screenLayer.className = `screen-layer screen-layer--ending screen-layer--${view.endingId}`;
+    this.screenLayer.dataset.endingId = view.endingId;
     this.screenLayer.replaceChildren();
     const article = element("main", "ending-scene");
-    article.append(
+    article.dataset.endingId = view.endingId;
+    const narrative = element("div", "ending-scene__narrative");
+    narrative.append(
       element("span", "ending-scene__label", view.label),
       element("h1", "ending-scene__title", view.title),
     );
     const copy = element("div", "ending-scene__copy");
     for (const paragraph of view.paragraphs) copy.append(element("p", undefined, paragraph));
-    article.append(copy);
+    narrative.append(copy);
     const continueButton = element("button", "ending-scene__continue", "クレジットへ");
     continueButton.type = "button";
     continueButton.addEventListener("click", onCredits);
-    article.append(continueButton);
+    narrative.append(continueButton);
+    article.append(narrative, createEndingVisual());
     this.screenLayer.append(article);
     continueButton.focus();
   }
@@ -692,10 +944,11 @@ export class AppUi {
       ["right", "→", "右へ移動"],
     ];
     for (const [direction, symbol, label] of directions) {
-      const control = element("button", `touch-button touch-button--${direction}`, symbol);
+      const control = element("button", `touch-button touch-button--${direction}`);
       control.type = "button";
       control.dataset.direction = direction;
       control.setAttribute("aria-label", label);
+      control.append(element("span", "touch-button__symbol", symbol));
       pad.append(control);
     }
     const actions = element("div", "touch-actions");
@@ -706,10 +959,14 @@ export class AppUi {
       ["pause", "Ⅱ", "ポーズ"],
     ];
     for (const [action, symbol, label] of actionData) {
-      const control = element("button", `touch-button touch-action touch-action--${action}`, symbol);
+      const control = element("button", `touch-button touch-action touch-action--${action}`);
       control.type = "button";
       control.dataset.uiAction = action;
       control.setAttribute("aria-label", label);
+      control.append(
+        element("span", "touch-button__symbol", symbol),
+        element("span", "touch-button__caption", action === "interact" ? "調べる" : label),
+      );
       actions.append(control);
     }
     root.append(pad, actions);
