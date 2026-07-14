@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "verify:prod": "node scripts/verify-production-build.mjs",
+    "verify:live": "node scripts/verify-live-site.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:prod"
   },
   "dependencies": {

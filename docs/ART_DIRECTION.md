@@ -1,257 +1,258 @@
 # ART DIRECTION — 雨宿り駅の忘れもの
 
-## 目的
+## この文書が示すもの
 
-本作のビジュアルを「雨夜の絵本」と「古い地方駅」を組み合わせた静かな2Dイラストへ統一する。写実的な背景へ置き換えるのではなく、現在の見下ろし探索、限られた色、読みやすいDOM UIを保ちながら、場所、人物、忘れものを文字なしでも認識できる具体性を加える。
+本作の現行visualは「雨夜の絵本」と「古い地方駅」を、外部画像ではなくPhaser GraphicsとDOM/CSSで組み立てた2D procedural artである。この文書は2026-07-14時点の実装基準を説明し、未制作のspritesheet、SVG prop、textureを完成済みとして扱わない。
 
-ビジュアル変更は描画層に閉じ、エリア、衝突、hotspot、進行、セーブ、エンディング条件を変更しない。新しい時間帯、天候、照明状態は既存のstory stageと設定から導出する。
+ゲーム進行、collision、hotspot、saveは描画から分離されている。world座標は1120×630で固定し、Phaserは探索空間、DOMは会話、ノート、所持品、設定、記録、記憶、エンディングを担当する。
 
-## 現状から継承するもの
+## 現行のvisual architecture
 
-`artifacts/playtest/` の既存画面と現在の実装から、次を継承する。
-
-- 深い濃紺、雨の青緑、駅灯の琥珀、記憶の珊瑚色という色の役割
-- 1120×630のworld、960×540のPhaser view、見下ろし型カメラ
-- Phaser Canvasを世界、DOMを長文UIとする責務分離
-- 画面隅へ寄せたHUD、中央を空ける構図、生成りの本文色
-- stageに応じて時計、雨、照明、夜明けが変化する仕組み
-- 紙の罫線を持つノート、結末ごとの色調、focus-visible、演出軽減
-
-全面改修の対象は、床の一様な格子、矩形に見える設備、glyphだけの忘れもの、同じ人型に見える人物、常時表示の抽象的なdiamond marker、素材感の弱い汎用パネルである。
-
-## アートコンセプト
-
-短い言葉での基準は「雨に濡れた古い駅を、記憶のページとして歩く」。
-
-画面は次の4原則で判断する。
-
-1. まず場所が分かる。各エリアは固有の大きなsilhouetteを1つ以上持つ。
-2. 次に進路が分かる。歩ける床、出口、危険区域を明度と形で分ける。
-3. その次に調査対象が分かる。対象固有色、置き方、近接時の反応を組み合わせる。
-4. 最後に質感が見える。摩耗、雨粒、錆、紙の繊維は主情報を邪魔しない密度に抑える。
-
-印象は「静か、湿っている、少し古い、寂しい、暖色が残る、怖すぎない、最後には希望がある」。サイバーパンク、強いネオン、ゴシックホラー、実写調、過剰なglass morphismへ寄せない。
-
-## カラーパレット
-
-色のcanonical sourceはvisual theme moduleへ集約し、Phaserは数値色、DOMは同じ値から設定したCSS custom propertiesを使う。個々のSceneやcomponentへ新しいhex値を直接増やさない。
-
-| Token | 色 | 用途 | 可読性の扱い |
-| --- | --- | --- | --- |
-| `night.deep` | `#101B2D` | 夜空、最暗部、panel背面 | 基準背景。純黒は使わない |
-| `night.mid` | `#18283A` | 壁、屋根、暗い設備 | 面の境界はoutlineまたは明度差を併用 |
-| `floor.wet` | `#263A49` | 濡れた床、通路 | 生成り本文とのcontrastは約8.9:1 |
-| `rain.base` | `#4F8790` | 雨、窓、波紋、青緑accent | 深夜色上で約4.3:1。本文には使わず線・大形状用 |
-| `rain.light` | `#8FB8BE` | 雨のhighlight、focus補助 | 細線は1pxだけにせずalphaと太さを確保 |
-| `lamp.amber` | `#DFB36A` | 駅灯、重要な温かさ、focus | 深夜色上で約8.9:1 |
-| `lamp.pale` | `#F0D8A3` | 灯具中心、hover、選択枠 | 小面積に限定し、白飛びを避ける |
-| `memory.coral` | `#D68F7C` | 記憶、感情、ナギのバッグ | 深夜色上で約6.6:1 |
-| `paper.base` | `#E7DFCE` | ノート、切符、駅名標 | 暗いUIとの差を主contrastにする |
-| `paper.ink` | `#18212C` | 紙面の本文 | 紙色上で約12.3:1 |
-| `shadow.violet` | `#4C485D` | 影の乗客、接地影、夜の紫 | 背景上の本文には使わない |
-| `dawn.blue` | `#A8C4CF` | 夜明け、最終stage、補助本文 | 深夜色上で約9.4:1 |
-| `item.umbrella` | `#A94E55` | 赤い傘、子どもの長靴 | icon形状とlabelを必ず併用 |
-| `ink.light` | `#F4EFE3` | 暗いpanel上の本文 | 深夜色上で約15.0:1 |
-
-本文は原則 `ink.light` / `paper.ink`、補助本文は `dawn.blue` を用い、通常サイズで4.5:1以上を維持する。`rain.base` と `shadow.violet` は文字色にしない。返却済み、未解放、選択中は色だけでなく、stamp、label、枠、iconの形も変える。
-
-### エリアごとの色温度
-
-| エリア | 基調 | 暖色量 | 固有accent |
-| --- | --- | ---: | --- |
-| 待合室 | 灰青と濃紺 | 中 | 木の茶、止まった時計の琥珀 |
-| 改札広間 | 冷たい灰青と古い金属 | 少 | 案内板の生成り、誘導線の青緑 |
-| 駅員室 | 暗い木、鈍い緑灰 | 多 | 卓上灯、帳簿、真鍮の鍵 |
-| 跨線橋 | 青灰、錆色、窓外の濃紺 | 少 | 蛍光灯の淡黄、遠景信号 |
-| 雨のホーム | 濃紺、雨青緑、線路の黒灰 | stageで増加 | 駅名標、琥珀灯、夜明けの薄青 |
-
-## 素材感
-
-素材は写真textureを貼るのではなく、ベース色、縁、highlight、2〜4本の摩耗線という少数の形で表現する。細部は毎frame再randomizeせず、seedまたは固定配置で画面のちらつきを防ぐ。
-
-| 素材 | 描き方 | 避けること |
+| Layer | 実装 | 描画内容 |
 | --- | --- | --- |
-| 濡れた床 | 低contrastの継ぎ目、細い縦反射、局所的な水たまり、足跡 | 全面均一grid、鏡面の完全再描画 |
-| 古い金属 | 青灰の面、暗い接合部、錆色の点と擦れ、塗装剥がれ | 強いchrome、鮮やかなneon反射 |
-| 木製ベンチ | 3段階の茶、板の継ぎ目、丸い摩耗、床への濃い接地影 | 茶色の長方形だけで終えること |
-| 曇った窓 | 暗い外、乳白の曇り、縦に流れる雨、窓枠の厚み | 背景と同色の平面、均一な白blur |
-| ホーロー標識 | 生成りの板、濃い縁、角の小さな欠け、支柱 | 重要文字をrasterへ焼き込むこと |
-| 紙・切符 | 生成り、わずかな繊維、丸みのない角、stampと perforation | 真白、過剰な破れ、読みにくい低contrast |
-| 古い日用品 | 角の擦れ、縫い目、留め具、木柄、code、紐 | itemを単一glyphや単純な幾何形だけで示すこと |
+| World base | `StationView.ts`のdepth 0 Graphics | floor、wall、window、設備、線路、列車、固定反射 |
+| Far weather | depth 1 Graphics | window／platformの雨筋 |
+| Light | depth 2 Graphics | 駅灯のglowと床面pool |
+| Wet FX | depth 3 Graphics | 水たまりのripple |
+| World label | Phaser Text、主にdepth 40 | 駅名、案内、設備label |
+| Item | `ItemVisual.ts`、おおむね`position.y + 21` | 6つの忘れもの、影、halo |
+| People | primitive Container、`position.y + 35〜40` | ナギ、駅員、乗客、鏡像 |
+| Marker | primitive Container、`position.y + 80` | hotspotのstem、halo、diamond、glint |
+| Near weather | depth 900 Graphics | 屋外の手前雨 |
+| Text-heavy UI | `AppUi.ts` + `main.css` | HUD、dialogue、modal、memory、ending、touch |
 
-film grainは記憶画面の背面だけにalpha 0.04以下で使い、本文panelと文字の上へ重ねない。
+世界のGraphicsは1枚の背景画像をloadしているのではなく、Scene開始時に毎回生成する。DOM artworkも画像maskではなく、通常要素、pseudo-element、gradient、border、shadowで描く。
 
-## 線と輪郭
+## Visual concept
 
-- 基準world size 1120×630で、人物と主要itemは2px、前景構造は2〜3px、内部detailは1pxを基準にする。
-- 輪郭は `#18212C` または `#101B2D`。純黒の均一線を全要素へ使わない。
-- 背景設備は面より15〜25%暗い低contrast輪郭、人物と調査対象は背景より明るい外縁を持つ。
-- 絵本らしさは線を歪ませる量ではなく、角の丸め、面のわずかな非対称、塗りの重なりで出す。位置をframeごとに揺らさない。
-- 前景の柱、手すり、屋根は太い輪郭で奥行きを作るが、主人公の背後に入った時はalpha 0.35〜0.55へ下げる。
-- 小さいitemは内部線を2〜5本へ限定し、silhouetteを最優先する。
+判断軸は次の4つである。
 
-## 描画レイヤーと背景密度
+1. 濃紺の夜と青緑の雨を基調にする。
+2. 琥珀の駅灯と生成りの紙を、進路・記憶・操作の焦点にする。
+3. 古い駅らしさは木床、terrazzo、金属床、標識、改札、台帳、線路など具体物で示す。
+4. 怖さより静けさを優先し、返却と夜明けでは暖色と明度を少し増やす。
 
-描画順は次に固定する。
+写真texture、外部illustration、強いneon、実写調、過度なglass morphismは使っていない。絵本らしさは丸角、少数色の面、太めの輪郭、固定配置の摩耗や雨で出している。
 
-1. 遠景と空
-2. 床・地面・線路
-3. 壁・窓・大型構造物
-4. 家具・設備
-5. 調査可能object
-6. characterと接地影
-7. 前景の柱・屋根・手すり
-8. 雨・灯り・反射・粒子
-9. DOM UI
+## 現在のpalette
 
-各エリアは大anchor 2〜3個、中型設備5〜8個、小さな摩耗・掲示・反射8〜14個を目安にする。移動経路中央の細部contrastはalpha 0.12以下、外周と行き止まりは情報密度を1.5倍まで上げる。調査対象の半径48px以内には、同じaccent色・同じ大きさの装飾を置かない。
+PhaserとDOMは同じ役割の色を持つが、1つの生成済みtoken sourceへ統合されてはいない。Phaserは`StationView.ts`の数値`PALETTE`、DOMは`main.css`のCSS custom properties、manifest metadataはcontent paletteを使う。
 
-### 5エリアの構図
+### Phaser world
 
-| エリア | 第一焦点 | 大きな形 | 中・小detail | 進路の見せ方 |
-| --- | --- | --- | --- | --- |
-| 待合室 | 0時の時計と雨の窓 | 3連窓、古い長椅子、傘立て | 路線図、時刻表、掲示板、飲料設備、ゴミ箱、濡れた足跡 | 改札側の扉へ床反射と壁の案内線を向ける |
-| 改札広間 | 有人改札と券売機 | 改札柵、ticket counter、閉鎖出口 | 運賃表、路線案内、回収箱、注意poster、鎖、天井灯 | 床の誘導線を3出口へ分岐し、未解放出口は物理的な鎖で示す |
-| 駅員室 | 卓上灯の机 | 机、書類棚、窓越しの改札 | 鍵掛け、電話、無線、伝言、帳簿、帽子、wall clock | 狭い床を暖色poolで区切り、重要手掛かりの周囲だけ余白を残す |
-| 跨線橋 | 雨粒の窓と遠い線路 | 階段、長い窓、手すり | 錆、塗装剥がれ、蛍光灯、水たまり、遠景信号 | 床板と手すりの収束線を階段へ向ける |
-| 雨のホーム | 駅名標、線路、灯りの反射 | 屋根、支柱、線路、ホームedge | 枕木、排水溝、時刻表、vending、信号、水たまり | 黄色線と排水溝で歩行域を縁取り、線路は明確な暗い段差にする |
+| Role | Color | 主用途 |
+| --- | --- | --- |
+| night | `#06111F` | 外枠、最暗部 |
+| night soft | `#10283C` | 夜空、窓外 |
+| wall | `#1A3448` | 駅の壁 |
+| wall light | `#294A5D` | ナギの上着、構造の明部 |
+| rain | `#8BCDD0` | 雨、波紋 |
+| lamp | `#F0D58D` | 灯具、返却の光 |
+| lamp dim | `#D0AD65` | 金属縁、弱い灯り |
+| ink | `#E8EFDF` | world label |
+| shadow | `#07101B` | 接地影、深い輪郭 |
+| memory | `#EEA07E` | 記憶、写真機、帳簿のaccent |
+| wood / wood light | `#5C493D` / `#7D624B` | bench、木部 |
+| silver | `#91A4AA` | 金属detail |
 
-## 光、影、反射
+### DOM UI
 
-駅灯は「面を照らす光」であり、単独の半透明三角形に見せない。灯具中心、柔らかなpool、床の縦反射、物体の接地影を一組として描く。
+| Role | Color | 主用途 |
+| --- | --- | --- |
+| deep night | `#101B2D` | page、panel背面 |
+| mid night | `#18283A` | panel、station sign |
+| wet floor | `#263A49` | UI内の駅景 |
+| rain | `#4F8790` / `#A8C4CF` | 線、window、focus補助 |
+| lamp | `#DFB36A` / `#F0D8A3` | button、focus、stamp |
+| memory | `#D68F7C` | reward、memory |
+| paper | `#E7DFCE` | notebook、ticket、caption |
+| paper ink | `#18212C` | paper上の本文 |
+| shadow violet | `#4C485D` | 記憶と影 |
+| dawn | `#A8C4CF` | Ending B、補助色 |
 
-- 灯具のcoreは `lamp.pale`、glowは `lamp.amber` のalpha 0.04〜0.12。
-- characterの接地影は足元中央、幅28〜40px、高さ8〜14px、alpha 0.28〜0.42。光源と逆側へ2〜5pxずらす。
-- ベンチ、券売機、柱は床との境界へ短い濃色を置き、浮いて見えるのを防ぐ。
-- 水たまりの反射は縦長の色帯、途切れた線、波紋だけで表現し、scene全体を再描画しない。
-- 屋内は暖色poolの外も歩行可能な明度を残す。屋外は空と床を分け、暗部を `night.deep` 一色で潰さない。
-- highlightでhotspotや出口を隠さない。glowは人物とitemより低いdepthへ置く。
+重要文字は`--ink`または`--paper-ink`を使う。rain色やmemory色だけで状態を伝えず、label、stamp、枠、形を併用する。
 
-### Story stageによる変化
+## 5 areaの実装
 
-| Stage | 時計 | 雨 | 光と空 |
-| ---: | --- | --- | --- |
-| 0 | 00:00 | 強い | 待合室の一部だけ点灯、外は濃紺 |
-| 1 | 00:18 | 強い | 駅員室側の灯りが増える |
-| 2 | 00:47 | steady | 跨線橋の灯りと遠景がわずかに見える |
-| 3 | 01:35 | steady | ホームへ青緑の反射が増える |
-| 4 | 02:31 | soft寄り | 記憶の珊瑚色が局所的に残る |
-| 5 | 03:56 | 弱まる | 信号と終電の灯り、空の下端に薄青 |
-| 6 | 04:58 | ほぼ止む | `dawn.blue`へ移行し、影を薄くする |
+### 待合室
 
-変化量はselector由来のstageだけから決める。Scene内に別の進行flagを作らない。
+- 木床と腰壁、3枚の雨窓が横方向の基準線を作る。
+- 0時から進む丸時計、2つの吊り灯、中央と窓側のbenchが主anchor。
+- 左に傘立て、右上に写真機、右端に改札案内を置く。
+- 写真機はstage 4から珊瑚色の稼働表示へ変わる。
+- 床の青緑反射、小さな足跡、rippleが「濡れている室内」を示す。
 
-## キャラクター比率
+### 改札口と券売機
 
-### World sprite
+- 灰色のterrazzo床に固定seed相当の小粒を散らす。
+- 上部中央の駅名板、案内窓口、券売機、公衆電話、5基の改札で駅の中心を示す。
+- 駅員室、跨線橋、待合室への出口はPhaser Textと暗いplateで示す。
+- stageに応じて券売機、改札lamp、跨線橋側の灯りが変わる。
 
-- ナギは頭身1:3.5〜1:4、表示目安44×68 world px、anchorは底面中央。現在の25×23の足元collision bodyは維持し、絵の肩やバッグからcollisionを自動生成しない。
-- 成人の影の乗客は40〜46×64〜72px、子どもは32〜36×48〜54px。身長だけでなく肩幅、姿勢、髪、coat、手の位置を変える。
-- ナギは濃紺の肩までの髪、生成りの襟、青緑寄りの上着、珊瑚／革色の小型bagを持つ。乗客より1段明るい輪郭で、左右反転してもbagの位置が不自然に入れ替わらない方向差分を持つ。
-- 4方向idleと4方向walkを用意する。walkは1方向4frame、8〜10fps。体格、髪型、襟、bagの色と位置を全frameで固定する。
-- 調査は2〜3frameの短い前傾、取得は胸元へ手を寄せる2〜3frame。追加frameより方向間の一貫性を優先する。
-- 駅員は古い帽子、長い制服、顔を隠す影、琥珀の小物を持つ。monsterではなく落ち着いた案内役の姿勢にする。
-- 影の乗客は顔を描き込まず、item対応色を面積5%未満のaccessoryへ使う。返却後は単純なalpha低下だけでなく、肩の力が抜けた姿勢または暖色rimを加える。
+### 駅員室
+
+- 鈍い灰緑の床と壁、暖かい木の机で他areaより室内感を強くする。
+- 忘れもの台帳、冷蔵庫、古い鏡、書類棚、椅子が主要設備。
+- 鏡はstage 5で縁と面が明るくなり、ナギ自身の忘れものへ焦点を移す。
+- 主灯は常時点灯し、机周辺に暖色poolを作る。
+
+### 跨線橋
+
+- 金属床の縦panel、3枚の長い雨窓、手すりが奥行きと進路を作る。
+- 2脚のbench、段階点灯する3つのlamp、ホームへ下る階段が主anchor。
+- window region内の雨と床の長い青緑反射で、屋内でも雨の強さを残す。
+
+### 雨のホーム
+
+- 濡れたconcrete、屋根と4本の柱、黄色線、暗い線路と枕木で歩行域を分ける。
+- 駅名標、bench、自動販売機、跨線橋階段を固定anchorにする。
+- city silhouette、青緑と琥珀の水面反射、屋外雨を重ねる。
+- stage 5で行き先のない終電、stage 6で明るい始発と夜明け色へ切り替える。
+
+`AreaDefinition.decorations`にも設備のboundsと色があるが、現行背景はこれを読まない。physicsは`obstacles`、visualは`StationView`内の座標がsourceであり、両者は別管理である。
+
+## People
+
+### World Nagi
+
+playable Nagiは画像spriteではない。rectangle、ellipse、circle、triangle、arcで、濃紺の髪、青いcoat、生成りの襟、珊瑚色scarf、髪留めを組み立てる。
+
+- physics bodyは25×23、visualの接地位置と分離する。
+- left時だけContainerを水平反転し、right／up／downは同じ基本silhouetteを使う。
+- 移動中は脚rotation、靴の上下、1.8px以内のbody bob、scarfの小さな揺れを加える。
+- 演出軽減時はstride、bob、scarf swayを止める。
+- 現在は4方向spritesheetやinteract／acquire専用frameを実装していない。
+
+### Station attendant and passengers
+
+`createPassenger`は共通bodyへowner固有accessoryを足す。
+
+| Role | 識別detail |
+| --- | --- |
+| 顔の見えない駅員 | 制帽、金縁、白い手袋 |
+| 赤い長靴の子 | 小柄な体格、赤いboots、白い星 |
+| 紺の鞄の通勤客 | 右側の大きな紺鞄とhandle |
+| 耳を澄ます老人 | headphone、青いear padとcode |
+| 本を抱く学生 | 茶色い本、生成りの頁、銀杏色の栞 |
+| 月のpinの青年 | 長いcoat、三日月pin、写真袋 |
+| 鏡側のナギ | 白い切符と青い罫線 |
+
+返却後は暖色halo、明るいoutline、小さな4-point starを追加する。顔の描き込みは抑えつつ、体格とaccessoryで区別する。
 
 ### Dialogue portrait
 
-Desktopは96×120pxを上限に、ナギ4感情、駅員1種、各乗客の個別silhouetteを用意する。portraitは本文panelの外左へ重ね、下中央のworldを隠しすぎない。Mobileは56×72pxへ簡略化し、本文が3行を超える時はportraitをheader内の小型iconへ縮める。
+会話portraitも画像ではない。DOMのbody、head、hair、accessoryをCSSで組み、`nagi`、`attendant`、`child`、`commuter`、`listener`、`student`、`youth`、`station`の8種類を持つ。toneとspeaker名から種類を決め、返却を示す台詞ではglowを強める。620px以下ではportraitを非表示にし、本文領域を優先する。
 
-## 忘れもの
+## 6つの忘れもの
 
-1つのitem silhouetteをworld、inventory、memory close-upで共用し、描き込み量だけをscale別に調整する。
+worldでは`ItemVisual.ts`が約40px基準のshapeを描き、DOMでは同じitem IDを使って約70pxのCSS sketchを別実装する。1つのSVGをscale共有しているわけではなく、DOM側の色もcontent色から自動生成されないため一部に差がある。
 
-| Item | 固有silhouette | 固有detail | Accent |
-| --- | --- | --- | --- |
-| 赤い傘 | 閉じた布の膨らみと曲がり柄 | 木柄、裂け目、雫、白い星補修 | 深い赤 + 生成り |
-| 星柄の弁当箱 | 丸角の二段箱 | 留め具、擦れた星、名前跡 | 紺 + 淡黄 |
-| 古いcassette player | 縦長本体とcode | cassette窓、再生／停止button、擦れ | 銀灰 + 青 |
-| 銀色の髪留め | 葉型のclip | K刻印、縁の反射 | 銀 + 銀杏色 |
-| 色あせた写真seal | 少し曲がった紙片 | 二人の影、褪色、擦れ、余白 | 生成り + 紫灰 |
-| 行き先のない切符 | 古い硬券の横長形 | 欠けた印字、番号、空白、鋏痕 | 生成り + 夜明け青 |
-
-Worldでは28〜40px、inventoryでは96〜128px、memoryでは180〜240pxを目安にする。文字画像だけへ意味を依存させず、DOMの名称と説明を併記する。
-
-## 調査対象とfeedback
-
-常時bobbingするdiamond markerは廃止する。対象は自然な配置と光で見つけられ、近接時だけ次のfeedbackを出す。
-
-- 対象輪郭を120〜180msで明るくする
-- 足元または対象上へ小さな操作表示を出す
-- item固有色の短いspecular lineを1回流す
-- promptへキーまたはtouch actionと対象名を表示する
-
-対象のvisual originはhotspot positionと一致させる。装飾の光とinteractive outlineは別depthにし、衝突範囲やhotspot radiusを見た目の都合で変更しない。演出軽減時は動くspecularを止め、静的outlineとpromptだけを使う。
-
-## UI素材
-
-文字はHTML textのまま維持し、背景画像へ焼き込まない。UIは同じpaletteを使うが、各画面の素材motifを変える。
-
-| UI | 素材motif | 構成 |
+| Item | World silhouette | DOM／memoryのdetail |
 | --- | --- | --- |
-| Title | 駅名標、雨の窓、古い切符 | LogoはDOM text、menuは駅案内板型、背景に待合室と傘の小さな物語要素 |
-| Dialogue | 濃紺の駅窓、真鍮のname plate | 話者名、本文、送り状態を3段階に分け、portraitは外側へ配置 |
-| Notebook | 生成りの手帳、布背、index tab | 罫線、紙端、tab、stampで状態を示し、長文は一列で読む |
-| Inventory | 使い込んだ旅行鞄／切符入れ | item一覧と選択中の拡大を分け、返却済みは「返」stampを併用 |
-| Pause / Settings | 駅の制御盤、案内板 | switch、slider、selectのnative操作性を保ち、企業dashboard風のcard列を避ける |
-| Records | 切符帳、改札stamp | A/B/Cごとにticket形と小さな景色を変え、未閲覧は伏せstampで示す |
-| HUD | 小型駅名標、clock、ticket tab | 場所、時計、目的、操作だけ。中央と主人公周辺を空ける |
-| Memory | 古い写真と薄い珊瑚色の紙 | item close-up、人物silhouette、3拍の進行、柔らかな縁 |
+| 赤い傘 | 広がった傘布、骨、曲がり柄 | 赤いgradient、木柄、星patch |
+| 星柄の弁当箱 | 丸角の二段箱 | 蓋、留め具、星 |
+| 古いカセットプレーヤー | 丸角body、cassette窓、code | 2 reel、button、外へ伸びるcode |
+| 銀色の髪留め | 細いclip | 銀のgradient、内側line、銀杏detail |
+| 色あせた写真シール | 縦長の紙、二人の影 | 褪色面、三日月、重なる人物 |
+| 行き先のない白紙の切符 | 横長硬券、切欠き | perforation、空欄line、青い印 |
 
-Dark panel上は本文16px以上、line-height 1.65、paper上は15px以上を基準にする。装飾線よりfocus outlineを優先し、操作要素は最低44×44 CSS pxを保つ。
+world itemには接地影と薄いhaloがあり、hotspot位置へ置かれる。inventoryではitem名、説明、「所持中／返却済み」を必ず併記し、返却済みは「返」stampを追加する。memoryでは同じCSS sketchを写真枠内で拡大し、captionと本文をDOM textで表示する。
 
-## 雨、記憶、夜明けのmotion
+## DOM UIの実装motif
 
-motionは情報と物語のためだけに使う。random配置はseed化し、visual testでは固定する。
+| Surface | 現行motifと構成 |
+| --- | --- |
+| Title | 雨窓、吊りlamp、bench、赤い傘、床反射をCSS sceneにし、駅名標／ticket調のmenuを重ねる |
+| HUD | locationを小型駅名標、objectiveをticket、操作群を古い駅のplateとして画面端へ置く |
+| Toast | item、clue、return、saveでsealの形と色を変える |
+| Dialogue | 濃紺の窓panel、真鍮色のspeaker札、話者別portrait、送りbutton |
+| Notebook | 生成りの紙、布背、横tab、section別の余白stamp、罫線 |
+| Inventory | 旅行鞄色のcard grid、item ID別sketch、返却stamp |
+| Settings / controls | 古い案内板の枠を使い、native input semanticsは維持する |
+| Records | 3枚のticket cardとending別の小景色。locked時は暗くする |
+| Memory | 珊瑚色を含む暗い背景、古い写真枠、item close-up、progress dot |
+| Final choice | platform、lamp、列車、railの小sceneと、終電／始発／残る選択別のbutton accent |
+| Ending | narrativeと駅景を2columnにし、Aは終電、Bは夜明け、Cは灯りを守るstation tableauへ変える |
+| Touch | 方向pad、76pxの調査button、44px以上のnote／inventory／pause |
 
-| Effect | 通常 | 演出軽減 |
-| --- | --- | --- |
-| 遠景雨 | Desktop 24本 / Mobile 14本、細く遅い | 12本、低速、移動量半減 |
-| 中景雨 | Desktop 36本 / Mobile 20本 | 12本、同一速度 |
-| 前景雨 | Desktop 12本 / Mobile 6本、時々通過 | 非表示 |
-| 窓雨 | 固定した8〜14本の流れと雫 | 静的な濡れ筋 |
-| 水たまり | 3〜5個の波紋、2.0〜3.2秒 | 1〜2個の静的ring |
-| 駅灯 | 2.4〜3.6秒、alpha差0.02以内の呼吸 | 固定alpha |
-| Character walk | 8〜10fps、髪と裾を1〜2px | frame数は維持し、secondary swayなし |
-| Interaction | 120〜180msのoutlineとspecular | 静的outline |
-| Memory | 420ms fade、最大1.025倍の緩いzoom | 120ms fade、zoomなし |
-| Dawn | 1.2〜1.8秒の色温度cross-fade | 150msの単純色切替 |
-| DOM UI | 140〜180msのfade / translate 4px以内 | 0〜80ms、移動なし |
+文字はtitle、world signを含めてruntime textであり、背景画像へ焼き込まない。focus outlineは装飾枠より優先する。
 
-点滅、強いcamera shake、無限particle増加を使わない。Scene終了時にTween、Timer、listener、Graphicsを破棄する。
+## Stage、雨、光
 
-## PCとMobileの差
+時計表示はstageごとに次の値を使う。
 
-| 項目 | Desktop 1280×720 | Mobile 390×844 |
-| --- | --- | --- |
-| World | 16:9を広く見せ、周辺の背景detailを残す | Canvasは全幅、characterの見かけ高さ22px以上。必要なcamera zoomは1.12を上限にする |
-| HUD | 場所左上、clock中央、tools右上、目的左下 | 場所とclockだけ上部、toolsはtouch buttonへ統合、目的は操作域の直上 |
-| Dialogue | 下部横長、portrait 96×120、最大3行 | 最大38vh、portrait 56×72またはheader icon、本文と送りbuttonを優先 |
-| Notebook | 中央の見開き、左tab | ほぼ全画面、一列、横tabはscroll可能、本文縦scroll |
-| Inventory | 一覧 + 選択中拡大の2column | 上に選択中item、下に横scroll一覧 |
-| Touch | 非表示 | 48px以上の方向・調査button、safe-area込み。Canvasへ重ねずletterboxを活用 |
-| Rain / detail | 全3層、遠景detailを表示 | 粒子数を約55%へ削減、1px detailを2pxまたは省略 |
-| Title | 左にlogoとmenu、右に駅scene | Logoを縮めず2〜3行、背景焦点を中央上、menuは画面下へ収める |
+| Stage | Time | 主なvisual change |
+| ---: | --- | --- |
+| 0 | 00:00 | 待合室の灯りは1つ。強い夜色 |
+| 1 | 00:18 | 待合室と駅員室側の灯り、冷蔵庫が明るくなる |
+| 2 | 00:47 | 跨線橋の中央灯と出口が有効になる |
+| 3 | 01:35 | ホームへ進める。夜明け補間はまだ0 |
+| 4 | 02:31 | 写真機が稼働し、ホーム中央灯が増える |
+| 5 | 03:56 | 券売機、終電、ホーム右灯、鏡が明るくなる |
+| 6 | 04:58 | 雨粒を0にし、空と列車を夜明け色へする |
 
-単純なtransform scaleだけでMobile対応を終えない。小さい表示で消えるline、portrait、item detailは専用の太さと配置へ切り替える。
+夜明け量は`clamp((stage - 3) / 3, 0, 1)`。stage 4、5、6で段階的に空と一部のsurfaceを補間する。
 
-## 避けるデザイン
+通常時のrain countは屋外94、屋内30。屋外では5本ごとに1本をnear layerにも描く。演出軽減時は屋外38、屋内14へ減らし、near rainのalphaを下げる。stage 6は雨を生成しない。
 
-- 黄色い四角、常時点滅、debug markerのような調査表示
-- 全面均一grid、同じ長方形の反復、全人物が同じ黒い人型
-- 重要な場所名やitem情報を画像内文字だけで伝えること
-- 暗部を黒で潰すこと、過度なneon、bloom、blur、glass morphism
-- 実写写真そのままの背景、特定作品・製品の固有design模倣
-- 画面中央を覆う常設HUD、Mobileで44px未満の操作要素
-- 無seed random、無制限particle、常時camera motion、長いtransition
-- 見た目だけ移動してcollision／hotspot positionとずれるobject
+rippleはbandごとに通常3、演出軽減時1。lampは通常時だけ小さく呼吸し、演出軽減時は固定alpha。hotspot markerは通常時に1250msで上下し、演出軽減時は静止する。
 
-## 完成時の視覚基準
+DOMはOSの`prefers-reduced-motion`とgame設定`data-reduced-motion="true"`の両方で、animationとtransitionを0.01ms、1 iterationへ抑える。
 
-- 文字を隠しても5エリアをsilhouetteと大設備から識別できる。
-- ナギ、駅員、5人の影の乗客、6つの忘れものを実ゲームサイズで識別できる。
-- 待合室は時計と雨窓、ホームは線路・駅名標・反射が第一視線になる。
-- PCと390×844で主人公、出口、現在対象、本文、touch操作が同時に判別できる。
-- 通常探索、記憶、3エンディングの色・素材・motionが明確に異なる。
-- 演出軽減でも必要な状態表示が失われず、色だけへ依存しない。
-- 背景を具体化しても既存のobstacle、exit、hotspot、click移動と視覚位置が一致する。
+## Responsive camera and mobile
+
+Phaser configの初期値は960×540だが、scale modeは`RESIZE`。`CameraLayout.ts`が実viewportからcameraを決め、simulation world 1120×630は変えない。
+
+| Mode | 実際の挙動 |
+| --- | --- |
+| Desktop | width 1180以上かつaspect 1.6以上。world中央へfixed、全worldを表示 |
+| Tablet | player follow、lerp 0.09、safe areaを考慮したdeadzone |
+| Portrait | aspect 0.9以下。zoom 1.25〜1.4、player follow、UI-safe centerへ上寄せ |
+
+390×844ではzoom 1.32、safe areaはx 12、y 62、width 366、height 478.16。profileのbottom inset 304pxはviewport比36%で303.84pxとなり、`ExplorationScene`のcamera viewportはY=62〜約540.16pxに収まる。目的chipとtouch操作はこのcamera下端より下へ分離し、portrait followはcropped viewport内でoffset 0を使う。`CameraLayout`自体が返す`screenFocusOffset.y`は-120.92である。
+
+CSSは620px以下で次を行う。
+
+- HUDを圧縮し、objectiveをtouch controlsの上へ置く。
+- touch padを144×144、方向buttonを48×48にする。
+- 調査buttonを76×76、note／inventory／pauseを44×44にする。
+- notebook、inventory、ending、final choiceを一列へ組み替える。
+- memory写真枠、portrait、ending sceneを専用寸法へ縮める。
+- 横overflowを作らず、world背面の余白にも低contrastのstation motifを残す。
+
+## Accessibility and semantics
+
+- dialogueとmodalは`role="dialog"`、適切な`aria-modal`とlabelを持つ。
+- notebookはtablist／tab／tabpanel、`aria-controls`、`aria-labelledby`を使う。
+- decorative portrait、stamp、scene、item sketchは`aria-hidden`。item名と説明は通常textで残す。
+- touch buttonはsymbolとは別に`aria-label`を持つ。
+- すべての主要buttonは44×44 CSS px以上を目標にし、現行mobile secondary actionは44px、directionは48px。
+- 返却、locked、active、ending差分は色だけでなくstamp、label、形、文言を併用する。
+- system font stackだけを使い、font load失敗で本文が消える構成にしない。
+
+## 現時点で実装していないもの
+
+次は過去の構想に含まれていたが、現在のruntimeには存在しない。完成済みとして記載しない。
+
+- `public/assets/`配下のgame用PNG、SVG、texture
+- Nagiの4方向walk spritesheet、interact／acquire animation strip
+- 駅設備、人物、portrait、忘れもののSVG file
+- 1つのitem artworkをworld、inventory、memoryでscale共有するasset pipeline
+- `AreaDefinition.decorations`から背景を自動配置するrenderer
+- `VISUAL_MANIFEST` keyによるruntime asset lookup
+- Phaser、DOM、content paletteを1つの生成tokenへ同期する仕組み
+- 駅員専用の`CHARACTER_VISUAL_KEYS` entry
+- hotspot markerの完全廃止。現行では小型diamondが常時表示される対象がある
+- 3枚の独立した遠景／中景／前景rain system。現行はfarとnearの2 Graphics
+
+これらを将来追加する場合は、実装とtestが入った時点で初めて本節から移し、`ASSET_MANIFEST.md`へpath、key、license、fallbackを記録する。
+
+## 現行visualの確認点
+
+- 5 areaが床材と大型設備で見分けられる。
+- playable Nagi、駅員、5人の乗客、鏡側Nagiがaccessoryで区別できる。
+- 6 itemがworld、inventory、memoryの各scaleで名前と結びつく。
+- stage 5の終電とstage 6の始発／夜明けが明確に異なる。
+- 1280×720では全world、390×844ではplayer followとtouch安全域が機能する。
+- 演出軽減で雨、marker、歩行、DOM motionが抑えられても、promptと状態textは残る。
+- obstacle、hotspot、visualの座標が目視で一致している。現状は自動同期ではないため、area改修時に必ず再検証する。

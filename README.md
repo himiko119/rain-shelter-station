@@ -2,13 +2,15 @@
 
 名前を忘れた主人公ナギが、終電の来ない無人駅で6つの忘れものを持ち主へ返していく、見下ろし型の2D探索アドベンチャーです。5つのエリアを歩き、手がかりをノートで照合し、よみがえる記憶をたどって3種類の結末へ進みます。Phaser 3、TypeScript、Viteで実装した、ブラウザだけで遊べる静的サイトです。
 
-**[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
+**[既存の公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
 
-![タイトル画面](artifacts/playtest/01-title-1280x720.png)
+> 今回のビジュアル全面改修は `codex/visual-overhaul-v2` でローカル検証済みです。GitHub Pagesへの反映と公開URLの本番スモークテストはこれから行うため、上記URLがこのbranchの最終表示と一致することはまだ確認していません。
 
-![雨のホーム](artifacts/playtest/07-rain-platform-1280x720.png)
+![全面改修後のタイトル画面](artifacts/visual-overhaul/after/desktop/01-title-1280x720.png)
 
-![B「始発」](artifacts/playtest/09-ending-b-1280x720.png)
+![全面改修後の雨のホーム](artifacts/visual-overhaul/after/desktop/06-rain-platform-1280x720.png)
+
+![全面改修後のB「始発」](artifacts/visual-overhaul/after/desktop/13-ending-b-1280x720.png)
 
 ## ゲームの特徴
 
@@ -16,8 +18,10 @@
 - 6つの忘れもの、12の手がかり、持ち主ごとの会話と記憶演出
 - 間違った相手へ返してもアイテムを失わず、停滞や誤返却に応じて3段階のヒントを解放
 - A「終電」、B「始発」、C「雨宿り」の3エンディングと閲覧記録
+- Phaser GraphicsとDOM/CSSだけで描く、完全オリジナルの雨夜の絵本／古い地方駅アート
+- 5エリア固有の背景、人物別silhouette／会話portrait、6品別のworld／所持品／記憶visual
 - 自動セーブ、音量・ミュート・文字速度・一括表示・演出軽減設定
-- キーボード、マウス／ポインター、390px級のタッチ画面に対応
+- キーボード、マウス／ポインター、390px級のタッチ画面とUI-safeな追従cameraに対応
 
 ## 操作
 
@@ -68,10 +72,13 @@ npm run test:watch
 npm run test:e2e
 npm run build
 npm run verify:prod
+npm run verify:live
 npm run check
 ```
 
-`npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。ブラウザE2Eは別に `npm run test:e2e` を実行してください。E2Eサーバーだけを起動する場合は `npm run dev:e2e` を使います。
+`npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。ブラウザE2Eは別に `npm run test:e2e` を実行してください。`npm run verify:live` は公開URLをChromium desktop、390×844 touch、Microsoft Edgeで検査し、本番証跡3枚を更新します。E2Eサーバーだけを起動する場合は `npm run dev:e2e` を使います。
+
+`codex/visual-overhaul-v2` の最終ローカル結果は、Vitest 57件、Playwright E2E 11件中11件成功、`npm run check` 成功です。ビジュアル比較用に `artifacts/visual-overhaul/before/` へ15枚、`after/` へ20枚を保存しています。390×844ではcamera下端を約540pxに収め、目的chipをtouch操作域の上へ分離することもE2Eと画面確認で検証しています。
 
 ## ディレクトリ構成
 
@@ -79,6 +86,7 @@ npm run check
 src/
   app.ts                 # Store、Phaser、DOM UI、セーブ、音の統合
   game/
+    assets/              # procedural visualのstable keyとlicense metadata
     content/             # エリア、忘れもの、手がかり、会話、記憶、結末
     core/                # シリアライズ可能な状態、reducer、selector、store
     input/               # キー／タッチを論理アクションへ変換
@@ -87,7 +95,7 @@ src/
     debug/               # 開発パネルとnamed E2E scenario bridge
   phaser/
     scenes/              # 探索を担当する単一のExplorationScene
-    view/                # 駅、人物、雨を描くprocedural view
+    view/                # 駅、人物、6品、雨、responsive cameraのprocedural view
   ui/                    # 会話、ノート、所持品、設定、記録、タッチUI
   styles/                # テーマとレスポンシブCSS
 tests/
@@ -96,6 +104,7 @@ tests/
 scripts/                 # 本番bundle検査
 docs/                    # 企画、設計、実装計画、テスト計画、プレイテスト記録
 artifacts/playtest/      # 目視確認用スクリーンショット
+artifacts/visual-overhaul/ # 全面改修のbefore / after比較
 ```
 
 ## セーブデータ
@@ -104,14 +113,18 @@ artifacts/playtest/      # 目視確認用スクリーンショット
 
 タイトルまたはポーズ画面の設定から「セーブデータを削除」を選び、確認画面で削除できます。削除するとこのキーが消去され、現在の進行は初期状態へ戻ります。
 
+今回のビジュアル全面改修ではsave schemaを変更しておらず、引き続き`saveVersion: 1`です。
+
 ## 素材と利用条件
 
-駅、人物、雨などの画面要素はPhaserの図形描画、音はWeb Audioで生成しており、外部の画像・音声素材は同梱していません。依存パッケージには各パッケージ固有のライセンスが適用されます。
+駅、人物、6つの忘れもの、雨などのworld要素はPhaser Graphics、会話portrait、ノート、所持品、記憶、エンディングなどはDOM/CSS、音はWeb Audioで生成しています。ゲーム内アートと音に外部の画像・音声素材を使っていません。`public/favicon.svg`だけはproject内で制作したブラウザアイコンです。依存パッケージには各パッケージ固有のライセンスが適用されます。
 
 このリポジトリにはコードの利用許諾を定める `LICENSE` がなく、`package.json` にもlicenseフィールドはありません。そのため、プロジェクトのコードをMITライセンスとして扱うことはできません。再利用・改変・再配布を行う場合は、権利者から別途許諾を得てください。
 
 ## 既知の制約
 
 - Web Audioはブラウザの自動再生制限に従い、最初のクリックまたはキー操作の後に開始します。音声デバイスが使えない場合もゲーム進行は継続します。
-- Phaserを含む本番JavaScriptはViteのchunk size警告対象になります。これは現在の単一ゲームbundle構成によるもので、ビルド失敗ではありません。
-- 実ブラウザ確認とE2EはChromiumを中心に実施し、公開版はMicrosoft Edgeでも短いスモークテストを通しています。Firefox / WebKitでは描画やWeb Audioの細部が異なる場合があります。
+- 全面改修後の本番buildはHTML 0.68 kB（gzip 0.46 kB）、JavaScript 1,372.22 kB（gzip 370.74 kB、source map 10,288.55 kB）、CSS 57.64 kB（gzip 13.29 kB）です。Phaserを含むJavaScriptだけがViteの500 kB chunk警告対象になりますが、ビルド失敗ではありません。
+- 全面改修の実ブラウザ確認とE2EはローカルChromium中心です。GitHub Pages公開後のChromium／Edge確認と、Firefox／WebKitの同等確認はまだ行っていません。
+
+公開前後の確認手順と現在の状態は [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)、画面・E2Eの記録は [docs/PLAYTEST_REPORT.md](docs/PLAYTEST_REPORT.md) を参照してください。
