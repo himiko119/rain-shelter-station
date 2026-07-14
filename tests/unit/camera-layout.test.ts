@@ -79,23 +79,23 @@ describe("responsive camera layout", () => {
     expect(layout.zoom).toMatchObject({ value: 1.32, min: 1.25, max: 1.4 });
     expect(layout.visibleWorld.width).toBeLessThan(CAMERA_WORLD_SIZE.width);
     expect(layout.safeArea).toEqual({
-      insets: { top: 62, right: 12, bottom: 190, left: 12 },
+      insets: { top: 62, right: 12, bottom: 303.84, left: 12 },
       x: 12,
       y: 62,
       width: 366,
-      height: 592,
+      height: 478.16,
     });
     expect(layout.safeVisibleWorld.width).toBeCloseTo(277.273, 3);
-    expect(layout.safeVisibleWorld.height).toBeCloseTo(448.485, 3);
+    expect(layout.safeVisibleWorld.height).toBeCloseTo(362.242, 3);
     expect(layout.tracking.kind).toBe("follow");
     if (layout.tracking.kind !== "follow") throw new Error("Expected follow policy.");
     expect(layout.tracking.lerp).toEqual({ x: 0.12, y: 0.1 });
     expect(layout.tracking.deadzone).toEqual({
       width: 139.08,
-      height: 142.08,
+      height: 114.758,
       unit: "screen-pixels",
     });
-    expect(layout.tracking.screenFocusOffset).toEqual({ x: 0, y: -64 });
+    expect(layout.tracking.screenFocusOffset).toEqual({ x: 0, y: -120.92 });
   });
 
   it("keeps portrait zoom within 1.25-1.4 across common phone widths", () => {
@@ -110,7 +110,7 @@ describe("responsive camera layout", () => {
     expect(layout.safeArea.width).toBeGreaterThan(0);
     expect(layout.safeArea.height).toBeGreaterThan(0);
     expect(layout.safeArea.insets.top).toBeLessThanOrEqual(300 * 0.22);
-    expect(layout.safeArea.insets.bottom).toBeLessThanOrEqual(300 * 0.34);
+    expect(layout.safeArea.insets.bottom).toBeLessThanOrEqual(300 * 0.36);
   });
 
   it.each([

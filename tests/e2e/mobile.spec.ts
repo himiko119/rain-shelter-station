@@ -36,6 +36,12 @@ test("390x844 layout stays in bounds and supports touch movement and menus", asy
   await expect(page.getByRole("tab", { name: "目的" })).toBeVisible();
   await page.getByRole("button", { name: "閉じる ×" }).click();
 
+  const beforeOutsideCameraTap = await snapshot(page);
+  await page.mouse.click(195, 670);
+  await page.waitForTimeout(350);
+  await waitForGameIdle(page);
+  expect((await snapshot(page)).playerPosition).toEqual(beforeOutsideCameraTap.playerPosition);
+
   const layout = await page.evaluate(() => {
     const rect = (selector: string): DOMRect => {
       const node = document.querySelector<HTMLElement>(selector);
@@ -71,8 +77,8 @@ test("390x844 layout stays in bounds and supports touch movement and menus", asy
   }
   expect(layout.objective.bottom).toBeLessThanOrEqual(layout.controls.top);
   for (const target of layout.touchTargets) {
-    expect(target.width).toBeGreaterThanOrEqual(38);
-    expect(target.height).toBeGreaterThanOrEqual(38);
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
   }
 
   await stabilizeVisuals(page);

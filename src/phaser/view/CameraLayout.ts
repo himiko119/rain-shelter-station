@@ -98,7 +98,7 @@ const CAMERA_PROFILES: Readonly<Record<CameraLayoutMode, CameraProfile>> = {
   },
   portrait: {
     zoom: { min: 1.25, max: 1.4, preferred: 1.32 },
-    safeInsets: { top: 62, right: 12, bottom: 190, left: 12 },
+    safeInsets: { top: 62, right: 12, bottom: 304, left: 12 },
   },
 };
 
@@ -132,7 +132,7 @@ function resolveSafeArea(
   const insets: CameraSafeInsets = {
     top: round(Math.min(requested.top, viewport.height * 0.22)),
     right: round(Math.min(requested.right, viewport.width * 0.16)),
-    bottom: round(Math.min(requested.bottom, viewport.height * 0.34)),
+    bottom: round(Math.min(requested.bottom, viewport.height * 0.36)),
     left: round(Math.min(requested.left, viewport.width * 0.16)),
   };
   return {

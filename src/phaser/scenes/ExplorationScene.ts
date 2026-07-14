@@ -392,7 +392,14 @@ export class ExplorationScene extends Phaser.Scene {
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
     if (!this.player || !this.bridge.canAcceptWorldInput()) return;
-    const worldPoint = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    const camera = this.cameras.main;
+    if (
+      pointer.x < camera.x ||
+      pointer.x > camera.x + camera.width ||
+      pointer.y < camera.y ||
+      pointer.y > camera.y + camera.height
+    ) return;
+    const worldPoint = pointer.positionToCamera(camera) as Phaser.Math.Vector2;
     const target = this.activeHotspots
       .map((active) => ({
         hotspot: active.definition,
