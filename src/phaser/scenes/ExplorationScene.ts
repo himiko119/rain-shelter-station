@@ -39,7 +39,7 @@ interface ActiveHotspot {
   readonly marker: Phaser.GameObjects.Container | null;
 }
 
-const INTERACTION_DISTANCE = 88;
+const INTERACTION_DISTANCE = 96;
 const EXIT_COOLDOWN_MS = 500;
 
 function availabilityMatches(definition: HotspotDefinition, state: GameState, stage: number): boolean {
@@ -309,7 +309,13 @@ export class ExplorationScene extends Phaser.Scene {
     const state = this.bridge.getState();
     const gameSize = this.scale.gameSize;
     const layout = resolveCameraLayout({ width: gameSize.width, height: gameSize.height });
-    camera.setViewport(0, 0, gameSize.width, gameSize.height);
+    const portraitViewport = layout.mode === "portrait";
+    camera.setViewport(
+      0,
+      portraitViewport ? layout.safeArea.y : 0,
+      gameSize.width,
+      portraitViewport ? layout.safeArea.height : gameSize.height,
+    );
     camera.setZoom(layout.zoom.value);
     camera.roundPixels = layout.roundPixels;
     camera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -326,10 +332,13 @@ export class ExplorationScene extends Phaser.Scene {
       layout.roundPixels,
       layout.tracking.lerp.x,
       layout.tracking.lerp.y,
-      layout.tracking.screenFocusOffset.x / layout.zoom.value,
-      layout.tracking.screenFocusOffset.y / layout.zoom.value,
+      portraitViewport ? 0 : layout.tracking.screenFocusOffset.x / layout.zoom.value,
+      portraitViewport ? 0 : layout.tracking.screenFocusOffset.y / layout.zoom.value,
     );
-    camera.setDeadzone(layout.tracking.deadzone.width, layout.tracking.deadzone.height);
+    camera.setDeadzone(
+      layout.tracking.deadzone.width / layout.zoom.value,
+      layout.tracking.deadzone.height / layout.zoom.value,
+    );
   }
 
   private updateNearbyHotspot(): void {

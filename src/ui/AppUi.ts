@@ -461,9 +461,12 @@ export class AppUi {
     if (isResolutionDialogue(view)) this.dialogueLayer.classList.add("dialogue-layer--resolution");
     const portrait = createPortrait(portraitIdentity);
     const panel = element("section", "dialogue-panel");
-    panel.setAttribute("aria-live", "polite");
     const speaker = element("h2", "dialogue-panel__speaker", view.speaker);
+    speaker.id = "active-dialogue-speaker";
+    this.dialogueLayer.setAttribute("aria-labelledby", speaker.id);
     const text = element("p", "dialogue-panel__text");
+    text.setAttribute("aria-live", "polite");
+    text.setAttribute("aria-atomic", "true");
     const footer = element("div", "dialogue-panel__footer", "Enter / Space / クリックで送る");
     const actions = element("div", "dialogue-panel__actions");
     panel.append(speaker, text, actions, footer);
@@ -495,17 +498,20 @@ export class AppUi {
       const speed = this.textSettings.showAllText ? 0 : TYPE_SPEED_MS[this.textSettings.textSpeed];
       if (speed === 0) {
         text.textContent = line;
+        text.setAttribute("aria-busy", "false");
         typing = false;
         completeLine = (): void => undefined;
         return;
       }
       text.textContent = "";
+      text.setAttribute("aria-busy", "true");
       typing = true;
       let cursor = 0;
       const revealAll = (): void => {
         if (this.typingTimer !== null) window.clearInterval(this.typingTimer);
         this.typingTimer = null;
         text.textContent = line;
+        text.setAttribute("aria-busy", "false");
         cursor = line.length;
         typing = false;
       };

@@ -25,6 +25,21 @@
   --shadow: 0 18px 60px rgb(3 8 17 / 52%);
 }
 
+@media (max-width: 620px) {
+  .notebook {
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: start;
+  }
+
+  .notebook__tabs {
+    align-self: start;
+  }
+
+  .notebook__pages {
+    min-height: 0;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

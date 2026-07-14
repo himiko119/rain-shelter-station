@@ -13,15 +13,16 @@ import {
 const runtime = globalThis as typeof globalThis & {
   readonly process?: { readonly env?: Readonly<Record<string, string | undefined>> };
 };
-const phase = runtime.process?.env?.VISUAL_PHASE ?? "before";
+const requestedPhase = runtime.process?.env?.VISUAL_PHASE;
+const phase = requestedPhase ?? "after";
 
 if (phase !== "before" && phase !== "after") {
   throw new Error(`VISUAL_PHASE must be "before" or "after", received: ${phase}`);
 }
 
-const ARTIFACT_ROOT = `artifacts/visual-overhaul/${phase}`;
+const ARTIFACT_ROOT = requestedPhase ? `artifacts/visual-overhaul/${phase}` : null;
 
-test.setTimeout(120_000);
+test.setTimeout(240_000);
 
 async function capture(
   page: Page,
@@ -35,7 +36,7 @@ async function capture(
   expect(await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))).toEqual(viewport);
 
   const screenshot = await page.screenshot({
-    path: `${ARTIFACT_ROOT}/${directory}/${fileName}`,
+    ...(ARTIFACT_ROOT ? { path: `${ARTIFACT_ROOT}/${directory}/${fileName}` } : {}),
     animations: "disabled",
     caret: "hide",
     fullPage: false,
@@ -141,7 +142,7 @@ test.describe("visual overhaul desktop baseline", () => {
     await capture(page, "desktop", "09-inventory-1280x720.png", viewport);
 
     await loadScenario(page, "fresh-game");
-    await holdKey(page, "ArrowLeft", 700);
+    await holdKey(page, "ArrowLeft", 1_000);
     await page.keyboard.press("KeyE");
     await expect.poll(async () => (await snapshot(page)).inventoryItemIds).toContain("item_red_umbrella");
     const acquisition = page.getByRole("dialog");
@@ -171,6 +172,30 @@ test.describe("visual overhaul desktop baseline", () => {
     await expect(ending.getByRole("heading", { level: 1, name: "始発", exact: true })).toBeVisible();
     expect((await snapshot(page)).activeEndingId).toBe("ending_first_train");
     await capture(page, "desktop", "13-ending-b-1280x720.png", viewport);
+
+    if (phase === "after") {
+      await loadScenario(page, "fresh-game");
+      await page.keyboard.press("Escape");
+      const pauseMenu = page.locator(".modal-card");
+      await expect(pauseMenu).toBeVisible();
+      await pauseMenu.locator(".menu-button").nth(2).click();
+      await expect(page.locator(".settings-form")).toBeVisible();
+      await capture(page, "desktop", "16-settings-1280x720.png", viewport);
+
+      await loadScenario(page, "ending-a-ready");
+      await reachFinalChoice(page);
+      await page.locator(".menu-list--final-choice .menu-button").nth(0).click();
+      await expect(page.locator(".screen-layer--ending_last_train")).toBeVisible();
+      expect((await snapshot(page)).activeEndingId).toBe("ending_last_train");
+      await capture(page, "desktop", "17-ending-a-1280x720.png", viewport);
+
+      await loadScenario(page, "ending-a-ready");
+      await reachFinalChoice(page);
+      await page.locator(".menu-list--final-choice .menu-button").nth(1).click();
+      await expect(page.locator(".screen-layer--ending_rain_shelter")).toBeVisible();
+      expect((await snapshot(page)).activeEndingId).toBe("ending_rain_shelter");
+      await capture(page, "desktop", "18-ending-c-1280x720.png", viewport);
+    }
   });
 });
 
@@ -202,5 +227,17 @@ test.describe("visual overhaul mobile baseline", () => {
     await expect(notebook.getByRole("heading", { name: "小さな濡れ足跡" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     await capture(page, "mobile", "15-mobile-note-390x844.png", viewport);
+
+    if (phase === "after") {
+      await loadScenario(page, "umbrella-return-ready");
+      await page.keyboard.press("KeyI");
+      await expect(page.locator(".inventory-grid")).toBeVisible();
+      await capture(page, "mobile", "19-mobile-inventory-390x844.png", viewport);
+
+      await loadScenario(page, "umbrella-return-ready");
+      await page.keyboard.press("KeyE");
+      await expect(page.locator(".dialogue-layer")).toBeVisible();
+      await capture(page, "mobile", "20-mobile-dialogue-390x844.png", viewport);
+    }
   });
 });
