@@ -157,6 +157,9 @@ for (const profile of profiles) {
     assert.equal(await continueButton.isEnabled(), true, "Continue must be enabled after reload.");
     await continueButton.click();
     await page.locator(".game-hud:not([hidden])").waitFor({ state: "visible" });
+    // Scene resume applies a short Phaser camera fade. Capture the stable
+    // production frame, not an engine transition whose timing varies by GPU.
+    await page.waitForTimeout(600);
 
     const screenshotPath = resolve(screenshotRoot, profile.screenshot);
     await mkdir(dirname(screenshotPath), { recursive: true });

@@ -4,7 +4,7 @@
 
 **[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
 
-> Art Quality V3では、57点のproject-original画像、方向別sprite、人物別portrait、6枚の記憶画、タイトル／最終選択／3エンディングを統合しました。公開URLはV3配信後にChromium desktop、390×844 touch、Microsoft Edgeで再検証します。
+> Art Quality V3はGitHub Pagesへ公開済みです。release merge commit `a55f3fa` を2026-07-15 02:52（JST）に配信し、公開URLをChromium desktop、390×844 touch、Microsoft Edgeで再検証しました。
 
 ![Art Quality V3のタイトル画面](artifacts/art-quality-v3/after/desktop/01-title-1280x720.png)
 
