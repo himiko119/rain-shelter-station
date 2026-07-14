@@ -9,11 +9,14 @@ import {
 import { selectStage } from "../../game/core";
 import type { Facing, GameState, PlayerPosition } from "../../game/core/types";
 import type { ActionInput } from "../../game/input";
+import { resolveCameraLayout } from "../view/CameraLayout";
+import { createWorldItemVisual } from "../view/ItemVisual";
 import {
   createHotspotMarker,
   createNagi,
   createPassenger,
   paintArea,
+  setNagiMotion,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   type AreaVisual,
@@ -107,14 +110,10 @@ export class ExplorationScene extends Phaser.Scene {
     this.player.setVisible(state.started);
     this.createPlayerColliders(area.obstacles);
 
-    if (state.started) {
-      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-      this.cameras.main.setDeadzone(190, 120);
-    } else {
-      this.cameras.main.centerOn(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
-    }
+    this.applyCameraLayout();
 
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.bridge.onPrompt(null);
     this.bridge.onReady();
@@ -163,12 +162,13 @@ export class ExplorationScene extends Phaser.Scene {
     body.setVelocity(direction.x * speed, direction.y * speed);
     this.currentFacing = facingFromVelocity(direction.x, direction.y, this.currentFacing);
     this.player.setDepth(this.player.y + 40);
-    this.player.setScale(this.currentFacing === "left" ? -1 : 1, 1);
-    if (direction.lengthSq() > 0) {
-      this.player.setRotation(Math.sin(time * 0.018) * 0.018);
-    } else {
-      this.player.setRotation(0);
-    }
+    setNagiMotion(
+      this.player,
+      this.currentFacing,
+      direction.lengthSq() > 0,
+      time,
+      state.settings.reducedMotion,
+    );
 
     this.updateNearbyHotspot();
     const handledExit = this.updateExit(time);
@@ -226,6 +226,11 @@ export class ExplorationScene extends Phaser.Scene {
 
   public setVisualsFrozen(frozen: boolean): void {
     this.visualsFrozen = frozen;
+    if (frozen) this.cameras.main.resetFX();
+  }
+
+  public resetCameraFx(): void {
+    this.cameras.main.resetFX();
   }
 
   public getPlayerPosition(): PlayerPosition {
@@ -293,17 +298,38 @@ export class ExplorationScene extends Phaser.Scene {
   private createWorldItem(hotspot: HotspotDefinition): void {
     if (!hotspot.itemId) return;
     const item = getItem(hotspot.itemId);
-    const color = Phaser.Display.Color.HexStringToColor(item.visual.primaryColor).color;
-    const backing = this.add.circle(hotspot.position.x, hotspot.position.y, 15, 0x071326, 0.72).setDepth(hotspot.position.y + 20);
-    backing.setStrokeStyle(1, color, 0.8);
-    this.add.text(hotspot.position.x, hotspot.position.y, item.visual.glyph, {
-      color: item.visual.primaryColor,
-      fontFamily: '"Yu Gothic UI", sans-serif',
-      fontSize: "17px",
-      fontStyle: "bold",
-      stroke: "#071326",
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(hotspot.position.y + 21);
+    createWorldItemVisual(this, hotspot.position, item.visual, {
+      depth: hotspot.position.y + 21,
+      scale: item.visual.shape === "hairclip" ? 1.08 : 1,
+    });
+  }
+
+  private applyCameraLayout(): void {
+    const camera = this.cameras.main;
+    const state = this.bridge.getState();
+    const gameSize = this.scale.gameSize;
+    const layout = resolveCameraLayout({ width: gameSize.width, height: gameSize.height });
+    camera.setViewport(0, 0, gameSize.width, gameSize.height);
+    camera.setZoom(layout.zoom.value);
+    camera.roundPixels = layout.roundPixels;
+    camera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    if (!state.started || !this.player || layout.tracking.kind === "fixed") {
+      camera.stopFollow();
+      camera.setDeadzone();
+      camera.centerOn(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
+      return;
+    }
+
+    camera.startFollow(
+      this.player,
+      layout.roundPixels,
+      layout.tracking.lerp.x,
+      layout.tracking.lerp.y,
+      layout.tracking.screenFocusOffset.x / layout.zoom.value,
+      layout.tracking.screenFocusOffset.y / layout.zoom.value,
+    );
+    camera.setDeadzone(layout.tracking.deadzone.width, layout.tracking.deadzone.height);
   }
 
   private updateNearbyHotspot(): void {
@@ -386,8 +412,13 @@ export class ExplorationScene extends Phaser.Scene {
     this.pointerTarget = new Phaser.Math.Vector2(worldPoint.x, worldPoint.y);
   };
 
+  private readonly handleResize = (): void => {
+    this.applyCameraLayout();
+  };
+
   private readonly handleShutdown = (): void => {
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.areaVisual?.destroy();
     this.areaVisual = null;
     this.activeHotspots = [];

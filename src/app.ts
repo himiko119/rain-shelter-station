@@ -155,10 +155,10 @@ export class GameApplication {
         default: "arcade",
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
-      render: { antialias: true, pixelArt: false, roundPixels: false },
+      render: { antialias: true, pixelArt: false, roundPixels: true },
       scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.NO_CENTER,
       },
       scene: [this.explorationScene],
     });
