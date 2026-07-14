@@ -12,7 +12,7 @@
 - mobile: 390×844、touch context
 - save schema: 変更なし、`saveVersion: 1`
 
-進行不能、入力不能、未処理page error、重大なconsole error、同一originのHTTP errorは最終E2Eで検出されていない。GitHub Pagesへの今回branchの配信と、公開URLに対する本番スモークテストは未実施である。
+進行不能、入力不能、未処理page error、重大なconsole error、同一originのHTTP errorは最終E2Eで検出されていない。visual release commit `0704a5b`はGitHub Pagesへ配信済みで、公開URLに対するChromium desktop、390×844 touch、Microsoft Edgeの本番スモークも全件合格した。
 
 ## 確認環境
 
@@ -28,7 +28,7 @@
 - desktop viewport: 1280×720、device scale factor 1
 - mobile viewport: 390×844、touch / mobile context
 
-GitHub Actions run ID、Pages deployment ID、公開確認時刻はまだ存在しないため、本報告には記載しない。
+GitHub Actions runは[29304611687](https://github.com/himiko119/rain-shelter-station/actions/runs/29304611687)、Pages deployment IDは`5434973792`。deploy完了は2026-07-14 12:54:24、本番スモーク完了は12:55:18（Asia/Tokyo）である。
 
 ## 今回のvisual変更
 
@@ -185,14 +185,18 @@ E2Eは次を検証する。
 
 Viteの非失敗warningは、Phaserを含むJavaScript chunkが500 kBを超えるという1種類だけである。TypeScript、Vite build、production sentinel scanは成功している。
 
-## Remaining release checks
+## Production verification
 
-- `codex/visual-overhaul-v2`をremoteへpushする。
-- 現行Pages workflowのtrigger branchとの差を解消するか、manual dispatchする。
-- GitHub Actionsのbuild／deploy成功とPages environment URLを確認する。
-- 公開URLでdesktop 1280×720とmobile 390×844を再確認する。
-- 公開assetの404、request failure、page error、console errorを再監視する。
-- save、reload、favicon、Web Audio開始を公開originで確認する。
-- 必要ならEdgeで短いsmoke、Firefox／WebKitで差分確認を行う。
+`npm run verify:live`を公開URLへ実行し、次を確認した。
 
-公開確認が終わるまで、`artifacts/playtest/11-production-*`〜`13-production-*`は以前の公開版の参考画像であり、今回のvisual overhaulの本番証跡として扱わない。
+| Profile | Browser | Result |
+| --- | --- | --- |
+| desktop 1280×720 | Chromium 149.0.7827.55 | 合格 |
+| mobile 390×844 touch | Chromium 149.0.7827.55 | 合格 |
+| desktop 1280×720 | Microsoft Edge 150.0.4078.65 | 合格 |
+
+全profileでタイトルから開始し、CanvasとDOM HUDを表示した。初回user gesture後のAudioContextは`running`、`rain-shelter-station.save.v1`作成後のreloadと「つづきから」は成功、faviconはHTTP 200、E2E bridgeは`undefined`だった。HTTP 4xx/5xx、request failure、page error、console errorは0件である。mobileは横overflowなし、objectiveとcontrolsの非重複、44px以上の全touch targetを再確認した。
+
+`artifacts/playtest/11-production-*`〜`13-production-*`は今回の公開URLから再撮影し、3枚すべて目視した。desktop ChromiumとEdgeは同等の構図で、mobileはworld下端、objective、touch controlsが縦に分離している。
+
+残る非ブロッカーはFirefox／WebKitの同等確認と、Phaserを含む単一JavaScript chunkの初回load最適化である。

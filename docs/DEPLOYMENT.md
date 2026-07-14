@@ -6,14 +6,26 @@
 | --- | --- |
 | 既存公開URL | <https://himiko119.github.io/rain-shelter-station/> |
 | GitHub repository | <https://github.com/himiko119/rain-shelter-station> |
-| 今回のrelease candidate branch | `codex/visual-overhaul-v2` |
+| 作業／保存branch | `codex/visual-overhaul-v2` |
 | workflowの自動trigger branch | `codex/rain-shelter-station-game` |
-| 今回branchのGitHub Pages反映 | 未実施 |
-| 今回branchの公開URLスモークテスト | 未実施 |
-| GitHub Actions run ID | 未発行 |
-| Pages deployment ID / 確認時刻 | 未発行・未記録 |
+| GitHub Pages反映 | 完了 |
+| 公開URLスモークテスト | 3環境すべて合格 |
+| GitHub Actions run | [29304611687](https://github.com/himiko119/rain-shelter-station/actions/runs/29304611687) |
+| Visual release commit | `0704a5b1416e8e2bb7f853b234e87476f74a29e2` |
+| Pages deployment ID | `5434973792` |
+| Deploy完了 | 2026-07-14 12:54:24（Asia/Tokyo） |
+| 本番スモーク完了 | 2026-07-14 12:55:18（Asia/Tokyo） |
 
-既存URLは存在するが、今回のvisual overhaulが配信済みであるとはまだ確認していない。`artifacts/playtest/11-production-desktop-1280x720.png`〜`13-production-edge-1280x720.png`は以前の公開版の記録であり、今回branchの本番証跡ではない。
+`codex/visual-overhaul-v2`を`codex/rain-shelter-station-game`へfast-forwardし、visual release commit `0704a5b`をGitHub Pagesへ配信した。`artifacts/playtest/11-production-desktop-1280x720.png`〜`13-production-edge-1280x720.png`は、この公開版を実URLから撮影し直した本番証跡である。
+
+## 今回の公開結果
+
+- `codex/visual-overhaul-v2`をremoteへ保存した。
+- 公開branchを`21a9ae9`から`0704a5b`へfast-forwardし、force pushなしで更新した。
+- Actions build jobは17秒、deploy jobは8秒で成功した。
+- Pages deployment `5434973792`はvisual release SHAと一致した。
+- HTTPS公開URLへ`npm run verify:live`を実行し、Chromium desktop、Chromium mobile touch、Edge desktopがすべて合格した。
+- 3環境とも初回操作後のAudioContextは`running`、save/reloadは成功、HTTP 4xx/5xx、request failure、page error、console errorは0件だった。
 
 ## Release candidateの内容
 
@@ -44,7 +56,7 @@ workflowは`.github/workflows/deploy-pages.yml`にある。
 2. 別のreviewed changeでworkflowのtrigger branchを意図したrelease branchへ変更する。
 3. `workflow_dispatch`でvisual overhaulのcommit／refを明示して手動実行する。
 
-この文書更新時点では、どの方法もまだ実行していない。
+今回は方法1を実施し、fast-forward後のpushでworkflowを開始した。
 
 ### Build / deploy job
 
@@ -136,7 +148,7 @@ E2Eはscreen Y=670のcamera外tapでplayerが移動しないことも確認す�
 8. 下記のproduction smoke testを行う。
 9. 全項目が成功してからREADMEの公開状態注記を更新する。
 
-本書には、まだ発行されていないrun ID、commit SHA、最終時刻を先に書かない。
+公開前は未発行のrun ID、commit SHA、最終時刻を先に書かず、workflowと本番スモーク完了後に実値を追記した。
 
 ## Production smoke test
 
@@ -168,19 +180,19 @@ E2Eはscreen Y=670のcamera外tapでplayerが移動しないことも確認す�
 - source bundleに`__RAIN_SHELTER_E2E__`と`__RAIN_SHELTER_DEV_PANEL__`がない。
 - debug panel、named scenario UI、任意state injectionが公開画面にない。
 
-## Production evidence to add after deployment
+## Production evidence
 
 公開確認後に、最低限次を記録する。
 
 | Evidence | Current |
 | --- | --- |
-| GitHub Actions run URL / ID | 未実施 |
-| deployed commit SHA | 未実施 |
-| Pages deployment timestamp | 未実施 |
-| desktop screenshot | 未実施 |
-| mobile screenshot | 未実施 |
-| Edge smoke result | 未実施 |
-| network / console summary | 未実施 |
+| GitHub Actions run URL / ID | [29304611687](https://github.com/himiko119/rain-shelter-station/actions/runs/29304611687) / success |
+| deployed commit SHA | `0704a5b1416e8e2bb7f853b234e87476f74a29e2` |
+| Pages deployment timestamp | 2026-07-14 12:54:24（Asia/Tokyo） |
+| desktop screenshot | `artifacts/playtest/11-production-desktop-1280x720.png`、目視合格 |
+| mobile screenshot | `artifacts/playtest/12-production-mobile-390x844.png`、目視合格 |
+| Edge smoke result | Edge 150.0.4078.65、合格 |
+| network / console summary | 3環境とも0 error |
 
 `npm run verify:live`は、検査した最新公開版の証跡として既存`artifacts/playtest/11-*`〜`13-*`を更新する。公開前のローカルpreview結果はcommitせず、公開URLに対する3環境検査が成功した後の画像だけを記録する。
 

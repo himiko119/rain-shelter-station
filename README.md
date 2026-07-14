@@ -2,9 +2,9 @@
 
 名前を忘れた主人公ナギが、終電の来ない無人駅で6つの忘れものを持ち主へ返していく、見下ろし型の2D探索アドベンチャーです。5つのエリアを歩き、手がかりをノートで照合し、よみがえる記憶をたどって3種類の結末へ進みます。Phaser 3、TypeScript、Viteで実装した、ブラウザだけで遊べる静的サイトです。
 
-**[既存の公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
+**[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
 
-> 今回のビジュアル全面改修は `codex/visual-overhaul-v2` でローカル検証済みです。GitHub Pagesへの反映と公開URLの本番スモークテストはこれから行うため、上記URLがこのbranchの最終表示と一致することはまだ確認していません。
+> ビジュアル全面改修はGitHub Pagesへ公開済みです。visual release commit `0704a5b` を2026-07-14 12:54（JST）に配信し、公開URLをChromium desktop、390×844 touch、Microsoft Edgeで再検証しました。
 
 ![全面改修後のタイトル画面](artifacts/visual-overhaul/after/desktop/01-title-1280x720.png)
 
@@ -125,6 +125,6 @@ artifacts/visual-overhaul/ # 全面改修のbefore / after比較
 
 - Web Audioはブラウザの自動再生制限に従い、最初のクリックまたはキー操作の後に開始します。音声デバイスが使えない場合もゲーム進行は継続します。
 - 全面改修後の本番buildはHTML 0.68 kB（gzip 0.46 kB）、JavaScript 1,372.22 kB（gzip 370.74 kB、source map 10,288.55 kB）、CSS 57.64 kB（gzip 13.29 kB）です。Phaserを含むJavaScriptだけがViteの500 kB chunk警告対象になりますが、ビルド失敗ではありません。
-- 全面改修の実ブラウザ確認とE2EはローカルChromium中心です。GitHub Pages公開後のChromium／Edge確認と、Firefox／WebKitの同等確認はまだ行っていません。
+- 全面改修はローカルE2Eに加え、GitHub Pages公開後のChromium desktop／390×844 touch／Microsoft Edgeでも確認済みです。Firefox／WebKitは同じ深さでは未確認です。
 
 公開前後の確認手順と現在の状態は [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)、画面・E2Eの記録は [docs/PLAYTEST_REPORT.md](docs/PLAYTEST_REPORT.md) を参照してください。

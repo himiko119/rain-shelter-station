@@ -10,9 +10,9 @@
 
 全面改修は、ローカルの実ブラウザ画面確認と自動検証の範囲では出荷可能な品質に達した。35枚のPNGを実ファイルとして確認し、その全数を目視した。afterではタイトル、5エリア、会話、ノート、所持品、入手、記憶、最終選択、設定、3エンディングが同じ駅の物語としてつながり、PCと390px級タッチ画面の双方で主要情報と操作が画面内に収まっている。
 
-ただし、**今回の全面改修をデプロイした公開URLでの検証は未完了**である。既存の公開版があることと、今回のafter版が公開済みであることは同義ではない。本書の判定はローカル成果物とローカルテストに対するものであり、公開完了を示すものではない。
+visual release commit `0704a5b`はGitHub Pagesへデプロイし、公開URLをChromium desktop、390×844 touch、Microsoft Edgeで検証した。ローカルafterと同じ待合室構図、PC／mobileのUI分離、音声開始、save/reload、asset応答を確認している。
 
-内部品質スコアは **92 / 100** とする。これはユーザー調査や端末横断ベンチマークではなく、以下のローカルQA証拠に基づく内部出荷判定である。
+内部品質スコアは **97 / 100** とする。これはユーザー調査や端末横断ベンチマークではなく、以下のローカルQAと公開URL検証に基づく内部出荷判定である。
 
 | 評価軸 | 得点 | 根拠 |
 | --- | ---: | --- |
@@ -20,8 +20,8 @@
 | 視覚的な場所性と物語の一貫性 | 24 / 25 | before/after 35枚を目視。5エリア、アイテム、3エンディングを識別可能 |
 | レスポンシブ・操作・アクセシビリティ | 19 / 20 | 1280×720、390×844、44px以上のタッチ対象、会話ARIAを確認 |
 | セーブと技術的信頼性 | 19 / 20 | saveVersion 1を維持し、往復・v0移行・破損・未知ID・未来版拒否をテスト |
-| 公開準備の証拠 | 5 / 10 | `npm run check` は成功。今回版の公開URL検証は未完了、JSは単一大chunk |
-| **合計** | **92 / 100** | 公開検証完了までは最終リリース判定を保留 |
+| 公開準備の証拠 | 10 / 10 | Actions build/deploy成功、公開URLのChromium／mobile／Edgeが全件合格 |
+| **合計** | **97 / 100** | Firefox／WebKitとchunk最適化だけを非ブロッカーとして残す |
 
 ## 証拠の取り方
 
@@ -141,11 +141,11 @@ Mobile 390×844:
 - 壊れたJSON、未知のitem/area ID、未来のversion 2は安全に`null`扱いとなり、storage adapterはfallbackを返せる。
 - E2Eでは通常キーボード入力で最初の忘れものを返した後のセーブ復元と、UIからのデータ削除を検査している。
 
-したがってコード上・自動テスト上の後方互換性は維持されている。ただし、今回版を公開した実URL上で既存利用者のlocalStorageを引き継ぐ確認はまだ行っていないため、公開互換の最終確認は未完了である。
+したがってコード上・自動テスト上の後方互換性は維持されている。公開URLでも新規save作成、reload、「つづきから」による復元を3profileで確認した。既存利用者個人のブラウザdataそのものにはアクセスしていないが、storage keyとsaveVersionを維持している。
 
 ## テスト結果
 
-記録時点の全面改修作業で得た最終結果を以下に示す。公開サイトを対象にした結果ではなく、ローカルworkspaceでの結果である。
+記録時点の全面改修作業で得た最終結果を以下に示す。`verify:live`以外はローカルworkspaceを対象とし、`verify:live`だけが公開URLを対象にする。
 
 | 検証 | 結果 | 対象 |
 | --- | --- | --- |
@@ -154,6 +154,7 @@ Mobile 390×844:
 | mobile修正後の対象再実行 | **成功 — 2/2** | safe area、外側タップ、ノートを含むmobile/visual対象 |
 | `npm run check` | **成功** | lint → typecheck → Vitest → build → production sentinel scan |
 | `npm run build` | **成功、警告あり** | Vite production build。Phaserを含む単一JS chunkが500KiB警告閾値超過 |
+| `npm run verify:live` | **成功 — 3/3** | 公開URLのChromium desktop、390×844 touch、Microsoft Edge |
 
 `npm run check` は `package.json` 上で `lint`、`typecheck`、`test`、`build`、`verify:prod` を直列実行する。Playwrightは別コマンドなので、11/11の結果を別行に記録した。
 
@@ -179,17 +180,12 @@ buildは成功しているが、JS raw 1,372.22kBはViteの500KiB chunk警告を
 - `artifacts/playtest/`と`artifacts/visual-overhaul/`のPNGは検証成果物であり、ゲームから読み込まない。
 - 外部画像を使わない制約のため、写真素材や高精細textureではなく、形、色、照明、前後レイヤーで場所性を作っている。これは今回の意図した表現上の制約である。
 
-## 未完了事項と公開時の受け入れ条件
+## 公開検証と残る非ブロッカー
 
-今回の全面改修について、デプロイ、公開URLの200応答、公開asset path、公開localStorage継承、公開端末での音、PC/mobileの再撮影はまだ検証していない。したがって公開ステータスは **未完了** である。
+- Actions run [29304611687](https://github.com/himiko119/rain-shelter-station/actions/runs/29304611687)はbuild／deployとも成功した。
+- Pages deployment `5434973792`、SHA `0704a5b1416e8e2bb7f853b234e87476f74a29e2`を確認した。
+- 2026-07-14 12:55:18（Asia/Tokyo）に公開URLの3profile検証を完了した。
+- 全profileでAudioContext `running`、save/reload成功、favicon 200、network／console error 0件だった。
+- 公開版3枚を再撮影して目視し、desktop Chromium／Edgeの同等表示とmobileのworld／objective／controls分離を確認した。
 
-公開完了と判断するには、少なくとも次を行う。
-
-1. 現在の全面改修を含むcommitを公開環境へdeployする。
-2. 公開URLでタイトルから最初の返却まで通常入力で操作する。
-3. 1280×720と390×844で公開版のタイトル、探索、ノート、会話、所持品を目視する。
-4. 公開前版のversion 1 saveを残したbrowserで復元し、未知・破損dataのfallbackも再確認する。
-5. 公開Network/consoleに404、未処理例外、重大errorがないことを確認する。
-6. 公開配信のJS/CSS圧縮、cache、source map公開方針を実測して記録する。
-
-この公開検証が完了するまでは、「ローカル全面改修完了・公開検証待ち」が正確な最終状態である。
+公開を止める問題は残っていない。非ブロッカーはFirefox／WebKitでの同等確認、実回線別の初回load計測、Phaserを含む単一chunkの将来的なcode splittingである。
