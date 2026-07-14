@@ -1,124 +1,94 @@
 # Static Asset Manifest Contract
 
-## Purpose
+## Source of truth
 
-背景、人物、ポートレート、アイテム、記憶、エンディング、UI一枚絵をstable keyで一元管理し、PhaserとDOMが同じファイルを参照する。ゲームロジックへパスを直書きしない。
-
-## Runtime shape
+`src/game/assets/staticArtManifest.ts` owns every runtime illustration. Phaser and DOM consume stable keys and never hard-code public file paths. The current manifest contains 57 project-original assets totaling 4,048,796 bytes.
 
 ```ts
-type StaticVisualAsset = {
-  key: string;
-  path: `assets/art-v3/${string}`;
-  category:
-    | "background"
-    | "foreground"
-    | "character"
-    | "portrait"
-    | "item"
-    | "memory"
-    | "ending"
-    | "ui";
-  width: number;
-  height: number;
-  anchor?: { x: number; y: number };
-  frame?: {
-    width: number;
-    height: number;
-    count: number;
-    fps: number;
-    repeat: number;
-  };
-  license: "project-original";
-  consumer: "phaser" | "dom" | "both";
-  fallback: "procedural-area" | "procedural-character" | "procedural-item" | "css-ui" | "none";
-};
+interface StaticArtAssetDefinition {
+  key: StaticArtAssetKey;
+  kind: "background" | "ui" | "ending" | "memory" | "portrait" | "sprite" | "item";
+  path: `assets/art-v3/${string}.${"webp" | "png"}`;
+  dimensions: { width: number; height: number };
+  budgetBytes: number;
+  description: string;
+  license: { id: "project-original"; externalRights: false };
+  fallback: StaticArtFallback;
+  frame?: { width: number; height: number; count: number };
+}
 ```
+
+## Key families
+
+| Family | Keys / count |
+| --- | --- |
+| Background | `art-v3.background.*` / 7 |
+| Nagi sprites | `art-v3.character.nagi-*` / 10 |
+| Passenger sprites | `art-v3.character.*-idle` / 6 |
+| Items | `art-v3.item.*` / 6 |
+| Portraits | `art-v3.portrait.*` / 17 |
+| Memories | `art-v3.memory.*` / 6 |
+| UI stills | `art-v3.ui.*` / 2 |
+| Endings | `art-v3.ending.*` / 3 |
+
+The platform has three background keys: night, last-train and dawn. `getAreaStaticArtKey` selects them by story stage without adding art state to the save.
+
+## Stable content mappings
+
+- `AREA_STATIC_ART_KEYS` / `getAreaStaticArtKey`: `AreaId` → background
+- `NAGI_STATIC_ART_KEYS`: direction and action → sprite sheet
+- `OWNER_STATIC_ART_KEYS`: `OwnerId` → idle sprite
+- `ITEM_STATIC_ART_KEYS`: `ItemId` → shared item image
+- `OWNER_PORTRAIT_STATIC_ART_KEYS`: `OwnerId` + normal/released → portrait
+- `NAGI_PORTRAIT_STATIC_ART_KEYS`: explicit Nagi mood → portrait
+- `MEMORY_STATIC_ART_KEYS`: `MemoryId` → story still
+- `ENDING_STATIC_ART_KEYS`: `EndingId` → ending still
+
+Dialogue selection uses `DialogueSpeaker` and explicit `portraitMood`; UI display names are never parsed to select art. Memory and ending views carry their stable IDs.
 
 ## Path rules
 
-- `public/assets/art-v3` がランタイムroot。
-- manifest pathは先頭スラッシュなし、ASCII、`..`なし、URL schemeなし。
-- URLは `import.meta.env.BASE_URL` と `document.baseURI` から一箇所で解決する。
-- `/assets/...`、`new URL(path, import.meta.url)`、CSSのroot-relative URLは禁止。
-- 画像の実寸とmanifest寸法を単体テストおよびブラウザdecodeで照合する。
+- Runtime root is `public/assets/art-v3`.
+- Manifest paths have no leading slash, backslash, URL scheme, query, fragment, empty segment, `.` or `..`.
+- `resolvePublicAssetUrl` combines the path with Vite `BASE_URL`, including `./` and `/rain-shelter-station/` Pages hosting.
+- Production source, mattes, rejected candidates and absolute local paths are not shipped.
 
-## Required key families
+## Loading
 
-### Backgrounds
+`ArtV3Preloader.ts` loads only Phaser-consumed background, sprite and item entries. A sprite entry must declare 96×112 cells and a count whose product exactly matches the sheet dimensions. DOM portraits and stills create an image only when their surface is shown.
 
-- `area.waiting-room.background`
-- `area.concourse.background`
-- `area.station-office.background`
-- `area.footbridge.background`
-- `area.rain-platform.night`
-- `area.rain-platform.last-train`
-- `area.rain-platform.dawn`
+The loader skips an existing texture key and animation registration checks `scene.anims.exists`, so Scene restart does not duplicate resources.
 
-### Foregrounds
+## Fallback
 
-- 待合室の傘立て前縁、改札機前縁、駅員室の机前面、跨線橋の左右手すり、ホームの屋根・駅名標を必要時だけ分割する。
-- 全画面foregroundは禁止。`sortY`を接地物の衝突下端へ合わせる。
+| Asset kind | Failure behavior |
+| --- | --- |
+| Background | pre-existing procedural area remains visible |
+| Nagi/passenger sprite | pre-existing Phaser Graphics character remains visible |
+| World item | pre-existing Phaser Graphics item remains visible |
+| DOM portrait/item/still | failed `<img>` removes itself; CSS/procedural fallback remains |
 
-### Characters
-
-- `character.nagi.*` — sprite specificationに従う。
-- `character.station-attendant.idle`
-- `character.red-boots-child.idle`
-- `character.navy-bag-commuter.idle`
-- `character.old-listener.idle`
-- `character.ginkgo-student.idle`
-- `character.crescent-youth.idle`
-
-### Portraits
-
-- ナギ5表情、駅員2表情、乗客5人×通常/解放後。
-- 安定したspeaker IDから明示的に解決し、表示名から推測しない。
-
-### Shared lost items
-
-- `item.red-umbrella`
-- `item.star-bento`
-- `item.cassette-player`
-- `item.silver-hairclip`
-- `item.faded-photo-sticker`
-- `item.blank-ticket`
-
-同じ基準画像をworld、取得、所持品、記憶へスケール違いで使う。PhaserとDOMのkey-to-path対応は同一でなければならない。
-
-### Story stills
-
-- `memory.*` 6件。
-- `ui.title.key-visual`、`ui.final-choice.key-visual`。
-- `ending.last-train`、`ending.first-train`、`ending.rain-shelter`。
-
-## Loading and fallback
-
-1. Art preload sceneが `phaser|both` を登録する。
-2. `loaderror` はキー単位で記録し、ゲーム起動は止めない。
-3. 背景欠落時は対象エリア全体を既存手続き背景へ戻す。
-4. 人物・アイテム欠落時は対象だけ既存Phaser Graphicsへ戻す。
-5. DOM画像はload成功後だけCSS fallbackを隠し、error時は壊れた画像アイコンを見せない。
-6. Scene再起動時は既存texture/animationを再登録せず、listenerとtweenを破棄する。
+Image dimensions and pixels never define collision, exits, hotspot radius or progression. A forced waiting-room 404 E2E confirms that the player can still move in the procedural fallback.
 
 ## Budgets
 
-- ランタイム静的画像合計: 12MB以下を必須目標。
-- 各背景: 原則1MB未満。
-- 各portrait: 原則400KB未満。
-- 1120×630の不透明背景: WebP。
-- 透過人物・アイテム: 最適化WebPまたはPNG。
-- 大型候補、ムードボード、編集元は `public` へ入れない。
+| Asset | Per-file gate |
+| --- | ---: |
+| Background / memory / ending / UI | 1,000,000 bytes |
+| Portrait / item | 400,000 bytes |
+| Sprite strip | 250,000 bytes |
+| All runtime images | 12,000,000 bytes |
+
+Current total uses about one third of the global gate. WebP is used for opaque scenes; transparency-preserving PNG/WebP is used for characters, portraits and props.
 
 ## Provenance
 
-- 全ランタイム画像は本プロジェクト向けに生成・編集したオリジナル。
-- license値は `project-original`。
-- 画像生成の視覚資料は本作の既存画面と本作向け生成物のみ。外部権利物を取り込まない。
+Every manifest entry uses `project-original` and `externalRights: false`. The visuals were generated and edited for this game using only the existing game and project-created references. External franchise art, logos, stock images and audio were not imported.
 
 ## Verification
 
-- 必須キー、一意性、全content ID網羅、ファイル存在、寸法、frame割り切り、budgetを単体テスト。
-- `./` と `/rain-shelter-station/` のURL解決をテスト。
-- E2Eで全画像を `Image.decode()` し、404、requestfailed、console error、page errorを失敗扱い。
-- 1素材を意図的に404へしたrouteで、fallback後も移動・衝突・保存が継続することを確認。
+- Unit tests validate unique key/path, safe path, project-original metadata, dimensions, sprite frame divisibility, file existence and byte budgets.
+- URL tests cover `./`, root, named Pages subpath and absolute deployment base.
+- Browser E2E calls `Image.decode()` on all 57 entries and checks natural dimensions.
+- The global browser fixture fails on console errors, page errors, request failures and unexpected HTTP errors.
+- The intentional 404 route is isolated and asserts continued movement.
