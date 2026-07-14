@@ -9,6 +9,7 @@ import {
 import { selectStage } from "../../game/core";
 import type { Facing, GameState, PlayerPosition } from "../../game/core/types";
 import type { ActionInput } from "../../game/input";
+import { preloadArtV3Textures } from "../view/ArtV3Preloader";
 import { resolveCameraLayout } from "../view/CameraLayout";
 import { createWorldItemVisual } from "../view/ItemVisual";
 import {
@@ -16,6 +17,7 @@ import {
   createNagi,
   createPassenger,
   paintArea,
+  playNagiAction,
   setNagiMotion,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -92,6 +94,10 @@ export class ExplorationScene extends Phaser.Scene {
     super({ key: "exploration" });
   }
 
+  public preload(): void {
+    preloadArtV3Textures(this);
+  }
+
   public create(): void {
     const state = this.bridge.getState();
     const stage = selectStage(state);
@@ -106,7 +112,7 @@ export class ExplorationScene extends Phaser.Scene {
     this.createObstacles(area.obstacles);
     this.createHotspots(area.hotspots, state, stage);
 
-    this.player = createNagi(this, state.playerPosition);
+    this.player = createNagi(this, state.playerPosition, state.settings.reducedMotion);
     this.player.setVisible(state.started);
     this.createPlayerColliders(area.obstacles);
 
@@ -182,6 +188,11 @@ export class ExplorationScene extends Phaser.Scene {
     if (!this.bridge.canAcceptWorldInput() || !this.player) return false;
     if (this.nearbyHotspot) {
       this.pointerTarget = null;
+      playNagiAction(
+        this.player,
+        this.nearbyHotspot.kind === "item" ? "acquire" : "inspect",
+        this.bridge.getState().settings.reducedMotion,
+      );
       this.bridge.onInteract(this.nearbyHotspot);
       return true;
     }
@@ -280,7 +291,13 @@ export class ExplorationScene extends Phaser.Scene {
         const returned = hotspot.ownerId === "owner_nagi"
           ? state.returnedItemIds.includes("item_blank_ticket")
           : state.returnedItemIds.some((itemId) => getItem(itemId).ownerId === hotspot.ownerId);
-        createPassenger(this, hotspot.ownerId, hotspot.position, returned);
+        createPassenger(
+          this,
+          hotspot.ownerId,
+          hotspot.position,
+          returned,
+          state.settings.reducedMotion,
+        );
         marker = createHotspotMarker(this, hotspot.position, 0xeacb7d, state.settings.reducedMotion);
       } else if (!alreadyFound || hotspot.kind === "ending") {
         marker = createHotspotMarker(
@@ -298,7 +315,7 @@ export class ExplorationScene extends Phaser.Scene {
   private createWorldItem(hotspot: HotspotDefinition): void {
     if (!hotspot.itemId) return;
     const item = getItem(hotspot.itemId);
-    createWorldItemVisual(this, hotspot.position, item.visual, {
+    createWorldItemVisual(this, hotspot.position, item.id, item.visual, {
       depth: hotspot.position.y + 21,
       scale: item.visual.shape === "hairclip" ? 1.08 : 1,
     });

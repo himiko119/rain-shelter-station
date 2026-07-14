@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "title": "雨宿り駅の忘れもの — Art Quality V3",
+    "subtitle": "雨夜の絵本 × 古い地方駅。既存の濃紺・青緑・琥珀を保ち、材質感・奥行き・感情密度を加える。",
+    "updated": "2026-07-15"
+  },
+  "signals": [],
+  "items": [
+    {
+      "id": "waiting-painterly",
+      "title": "雨窓と止まった時計",
+      "caption": "木床の湿度、琥珀灯、青緑の窓。待合室の完成密度。",
+      "source": "Project-original ImageGen visual direction.",
+      "tone": "quiet, humid, hopeful",
+      "motif": "waiting room material and light",
+      "palette": ["#071326", "#153348", "#5f8f96", "#e6c47c", "#b9655a"],
+      "prompt": "A quiet painterly old rural station waiting room at rainy midnight with aged wood, stopped clock, amber lamp, rain teal windows and wet reflections.",
+      "imageUrl": "/generated/01-waiting-painterly.png",
+      "sourceImageUrl": "/generated/01-waiting-painterly.png"
+    },
+    {
+      "id": "concourse-painterly",
+      "title": "琥珀と券売機の青",
+      "caption": "改札の構造を明快にし、暖色と青白い機械光を対比。",
+      "source": "Project-original ImageGen visual direction.",
+      "tone": "still, architectural",
+      "motif": "ticket gate warm cool contrast",
+      "palette": ["#06111f", "#173047", "#6ba8bc", "#d6aa63", "#59453c"],
+      "prompt": "An illustrated old station ticket gate at midnight with clear walkable lanes, wet stone, amber office light and cool blue ticket-machine glow.",
+      "imageUrl": "/generated/02-concourse-painterly.png",
+      "sourceImageUrl": "/generated/02-concourse-painterly.png"
+    },
+    {
+      "id": "station-office-painterly",
+      "title": "台帳を照らす一灯",
+      "caption": "狭い駅員室を一つの情景としてまとめる主光源と生活感。",
+      "source": "Project-original ImageGen visual direction.",
+      "tone": "intimate, mysterious",
+      "motif": "ledger desk lamp mirror",
+      "palette": ["#111827", "#3b302b", "#d7a65d", "#e9ddc2", "#47798a"],
+      "prompt": "A compact painterly station office centered on a ledger under one amber desk lamp, with old radio, keys, telephone, shelves and mirror.",
+      "imageUrl": "/generated/03-station-office-painterly.png",
+      "sourceImageUrl": "/generated/03-station-office-painterly.png"
+    },
+    {
+      "id": "footbridge-painterly",
+      "title": "雨に浮く跨線橋",
+      "caption": "消失点、濡れた鋼板、階段の抜けで移動方向を読む。",
+      "source": "Project-original ImageGen visual direction.",
+      "tone": "lonely, spatial",
+      "motif": "long perspective and stair opening",
+      "palette": ["#07111f", "#16354d", "#557480", "#b88649", "#8a5c42"],
+      "prompt": "A long rain-soaked enclosed footbridge with wet steel floor, cool fluorescent lights, warm distant lamp, windows and a clear stair opening.",
+      "imageUrl": "/generated/04-footbridge-painterly.png",
+      "sourceImageUrl": "/generated/04-footbridge-painterly.png"
+    },
+    {
+      "id": "platform-night-painterly",
+      "title": "雨夜のホーム",
+      "caption": "線路、黄色線、赤信号、濡れた反射が最終舞台を支える。",
+      "source": "Project-original ImageGen visual direction.",
+      "tone": "cinematic, restrained",
+      "motif": "platform rain reflections",
+      "palette": ["#04111f", "#123550", "#517b89", "#e2bd72", "#b34d45"],
+      "prompt": "A cinematic illustrated rural station platform at rainy midnight with a clear safety line, tracks, red signal, amber lamp and layered wet reflections.",
+      "imageUrl": "/generated/05-platform-night-painterly.png",
+      "sourceImageUrl": "/generated/05-platform-night-painterly.png"
+    },
+    {
+      "id": "title-key-visual",
+      "title": "名前を忘れた夜",
+      "caption": "左を静かな文字領域、右をナギと赤い傘の物語領域に分ける。",
+      "source": "Project-original Generative Polish key visual.",
+      "tone": "quiet, iconic",
+      "motif": "Nagi red umbrella negative space",
+      "palette": ["#05101f", "#0f2a40", "#29485a", "#d4a967", "#a64f4e"],
+      "prompt": "A title key visual with deep negative space on the left and Nagi beside a red umbrella under an amber station lamp on the right, no typography.",
+      "imageUrl": "/generated/06-title-key-visual.png",
+      "sourceImageUrl": "/generated/06-title-key-visual.png"
+    },
+    {
+      "id": "nagi-seed",
+      "title": "ナギの基準デザイン",
+      "caption": "濃紺ボブ、琥珀の髪留め、青緑の上着、生成り、珊瑚、革。",
+      "source": "Project-original ImageGen character seed.",
+      "tone": "attentive, grounded",
+      "motif": "readable protagonist silhouette",
+      "palette": ["#101827", "#183047", "#e7dcc5", "#a95750", "#7a583c"],
+      "prompt": "A full-body character source frame for a teenage protagonist with a near-black bob, navy teal rain coat, cream collar, coral scarf and worn satchel.",
+      "imageUrl": "/generated/07-nagi-character-seed.png",
+      "sourceImageUrl": "/generated/07-nagi-character-seed.png"
+    },
+    {
+      "id": "lost-items-material",
+      "title": "長く使われた私物",
+      "caption": "6品を記号ではなく、傷と手触りを持つ思い出の器にする。",
+      "source": "Project-original ImageGen material study.",
+      "tone": "tactile, nostalgic",
+      "motif": "lost property still life",
+      "palette": ["#211a18", "#6b4633", "#b77059", "#c9a45d", "#d7c6a4"],
+      "prompt": "A tactile lost-property still life of a red umbrella, star bento, cassette player, silver hairclip, faded photo strip and blank ticket under amber light.",
+      "imageUrl": "/generated/08-lost-items-material-study.png",
+      "sourceImageUrl": "/generated/08-lost-items-material-study.png"
+    },
+    {
+      "id": "baseline-title",
+      "title": "継承するタイトル構造",
+      "caption": "正確なDOM文字、駅名標の階層、左メニューの読みやすさを維持。",
+      "source": "Current shipped game screenshot.",
+      "tone": "structured",
+      "motif": "title information hierarchy",
+      "palette": ["#071326", "#10253a", "#f0e4c8", "#e5c376", "#6fa3b3"],
+      "prompt": "Preserve the current title screen's exact DOM hierarchy, Japanese typography readability and left-side navigation while replacing only the visual art.",
+      "imageUrl": "/generated/09-baseline-title.png",
+      "sourceImageUrl": "/generated/09-baseline-title.png"
+    },
+    {
+      "id": "baseline-world",
+      "title": "継承するワールド座標",
+      "caption": "1120×630、低いHUD、足元depth、出口と調査対象の読みやすさ。",
+      "source": "Current shipped game screenshot.",
+      "tone": "playable",
+      "motif": "world readability and geometry",
+      "palette": ["#071326", "#173344", "#58473f", "#e2c174", "#7fbbc0"],
+      "prompt": "Preserve the current world-coordinate readability, low HUD, character footing, exits and interactable placement while replacing the procedural background.",
+      "imageUrl": "/generated/10-baseline-world.png",
+      "sourceImageUrl": "/generated/10-baseline-world.png"
+    },
+    {
+      "id": "baseline-dialogue",
+      "title": "会話は引き算",
+      "caption": "本文を最優先し、立ち絵は背景の感情を補う幅に限定。",
+      "source": "Current shipped game screenshot.",
+      "tone": "clear, restrained",
+      "motif": "dialogue hierarchy",
+      "palette": ["#071326", "#112137", "#f4ead7", "#d6b66f", "#78aeba"],
+      "prompt": "Retain the current accessible dialogue hierarchy and readable text while replacing the CSS portrait with a restrained illustrated bust.",
+      "imageUrl": "/generated/11-baseline-dialogue.png",
+      "sourceImageUrl": "/generated/11-baseline-dialogue.png"
+    },
+    {
+      "id": "baseline-note",
+      "title": "生成りの手帳",
+      "caption": "紙面の明度と余白を守り、背景アートと競合させない。",
+      "source": "Current shipped game screenshot.",
+      "tone": "tactile, legible",
+      "motif": "cream notebook surface",
+      "palette": ["#f2ead7", "#d7c7a5", "#365b63", "#7c6650", "#13283a"],
+      "prompt": "Preserve the cream-paper notebook metaphor, strong text contrast, tabs and compact evidence hierarchy with quieter decoration.",
+      "imageUrl": "/generated/12-baseline-note.png",
+      "sourceImageUrl": "/generated/12-baseline-note.png"
+    },
+    {
+      "id": "baseline-inventory",
+      "title": "旅行鞄の所持品",
+      "caption": "カード構造は維持し、同じ基準アイテム絵を全画面で共有。",
+      "source": "Current shipped game screenshot.",
+      "tone": "organized, personal",
+      "motif": "travel bag inventory",
+      "palette": ["#0a1728", "#142b40", "#e8d9bd", "#d3ad63", "#7fb5b7"],
+      "prompt": "Preserve the travel-bag inventory structure and item-state labels while using one shared illustrated asset for each lost object.",
+      "imageUrl": "/generated/13-baseline-inventory.png",
+      "sourceImageUrl": "/generated/13-baseline-inventory.png"
+    },
+    {
+      "id": "baseline-memory",
+      "title": "珊瑚色の記憶",
+      "caption": "探索より密度を上げ、光と一枚絵で返却の報酬を感じさせる。",
+      "source": "Current shipped game screenshot.",
+      "tone": "emotional, warm",
+      "motif": "coral memory bloom",
+      "palette": ["#16192a", "#754d5b", "#d67b67", "#eac88a", "#8baeb9"],
+      "prompt": "Preserve the coral memory bloom and focused narration while replacing the symbolic CSS vignette with an emotional illustrated memory scene.",
+      "imageUrl": "/generated/14-baseline-memory.png",
+      "sourceImageUrl": "/generated/14-baseline-memory.png"
+    },
+    {
+      "id": "baseline-final",
+      "title": "二本の線路",
+      "caption": "最終選択は正確なDOMボタンと、夜から朝へ向かう視覚差を残す。",
+      "source": "Current shipped game screenshot.",
+      "tone": "decisive, poetic",
+      "motif": "final route choice",
+      "palette": ["#071326", "#263a51", "#d9b669", "#d47769", "#9fc4cc"],
+      "prompt": "Preserve the accessible final-choice buttons and rail-route metaphor while giving the scene a more cinematic illustrated destination view.",
+      "imageUrl": "/generated/15-baseline-final.png",
+      "sourceImageUrl": "/generated/15-baseline-final.png"
+    },
+    {
+      "id": "baseline-mobile",
+      "title": "390pxの操作余白",
+      "caption": "世界、目的、移動、調査を分離し、44px操作域とsafe areaを維持。",
+      "source": "Current shipped game screenshot.",
+      "tone": "compact, playable",
+      "motif": "mobile touch ergonomics",
+      "palette": ["#061321", "#102137", "#e3bd6b", "#e6eadf", "#6f9da8"],
+      "prompt": "Preserve the 390-pixel mobile separation of world, objective and touch controls, including 44-pixel targets and safe-area spacing.",
+      "imageUrl": "/generated/16-baseline-mobile.png",
+      "sourceImageUrl": "/generated/16-baseline-mobile.png"
+    }
+  ]
+}

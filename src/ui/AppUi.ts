@@ -1,4 +1,14 @@
-import type { GameSettings } from "../game/core/types";
+import {
+  ENDING_STATIC_ART_KEYS,
+  ITEM_STATIC_ART_KEYS,
+  MEMORY_STATIC_ART_KEYS,
+  NAGI_PORTRAIT_STATIC_ART_KEYS,
+  OWNER_PORTRAIT_STATIC_ART_KEYS,
+  STATIC_ART_KEYS,
+  getStaticArtAssetUrl,
+  type StaticArtAssetKey,
+} from "../game/assets";
+import type { GameSettings, OwnerId } from "../game/core/types";
 import { GAME_META } from "../game/content/meta";
 import type {
   DialogueView,
@@ -37,15 +47,6 @@ type PortraitKind =
   | "station";
 
 type ToastTone = "default" | "item" | "clue" | "return" | "save";
-
-const MEMORY_ITEM_BY_TITLE: Readonly<Record<string, InventoryEntry["itemId"]>> = {
-  "明かりの下の星": "item_red_umbrella",
-  "眠っていた朝": "item_star_bento",
-  "町を持ち歩く音": "item_cassette_player",
-  "余白の『またね』": "item_silver_hairclip",
-  "写真の続き": "item_faded_photo_sticker",
-  "名前のある行き先": "item_blank_ticket",
-};
 
 const MEMORY_CAPTION_BY_ITEM: Readonly<Record<InventoryEntry["itemId"], string>> = {
   item_red_umbrella: "赤い傘に残る、白い星の約束",
@@ -101,21 +102,21 @@ function menuIntent(label: string): string | null {
   return null;
 }
 
-function portraitKind(view: DialogueView): PortraitKind {
-  const speaker = view.speaker;
-  if (view.tone === "nagi" || speaker.includes("ナギ") || speaker.includes("鏡")) return "nagi";
-  if (view.tone === "attendant" || speaker.includes("駅員")) return "attendant";
-  if (speaker.includes("長靴") || speaker.includes("子")) return "child";
-  if (speaker.includes("鞄") || speaker.includes("通勤")) return "commuter";
-  if (speaker.includes("老人") || speaker.includes("耳を澄ます")) return "listener";
-  if (speaker.includes("学生") || speaker.includes("本を抱く")) return "student";
-  if (speaker.includes("青年") || speaker.includes("月のピン")) return "youth";
-  return view.tone === "passenger" ? "commuter" : "station";
+function portraitKind(speakerId: DialogueView["speakerId"]): PortraitKind {
+  switch (speakerId) {
+    case "owner_nagi": return "nagi";
+    case "owner_station_attendant": return "attendant";
+    case "owner_red_boots_child": return "child";
+    case "owner_navy_bag_commuter": return "commuter";
+    case "owner_old_listener": return "listener";
+    case "owner_ginkgo_student": return "student";
+    case "owner_crescent_youth": return "youth";
+    default: return "station";
+  }
 }
 
 function isResolutionDialogue(view: DialogueView): boolean {
-  const copy = view.lines.join(" ");
-  return /ありがとう|返して|戻ってきた|わたしの|私の|僕の|俺の/u.test(copy);
+  return view.portraitMood === "released" || view.portraitMood === "relieved";
 }
 
 function toastTone(message: string): ToastTone {
@@ -143,16 +144,27 @@ function notebookStamp(title: string): string {
   return "雨ノ間";
 }
 
-function memoryItemId(view: MemoryPresentation): InventoryEntry["itemId"] {
-  const mapped = MEMORY_ITEM_BY_TITLE[view.title];
-  if (mapped) return mapped;
-  const source = `${view.visual ?? ""} ${view.title} ${view.lines.join(" ")}`;
-  if (/傘|白い星/u.test(source)) return "item_red_umbrella";
-  if (/弁当|台所|海苔/u.test(source)) return "item_star_bento";
-  if (/カセット|録音|四拍/u.test(source)) return "item_cassette_player";
-  if (/髪留め|銀杏|またね/u.test(source)) return "item_silver_hairclip";
-  if (/写真|三日月|AM-042/u.test(source)) return "item_faded_photo_sticker";
-  return "item_blank_ticket";
+function staticImage(
+  key: StaticArtAssetKey,
+  className: string,
+  loading: "eager" | "lazy" = "lazy",
+): HTMLImageElement {
+  const image = element("img", className);
+  image.alt = "";
+  image.decoding = "async";
+  image.loading = loading;
+  image.src = getStaticArtAssetUrl(key);
+  return image;
+}
+
+function portraitStaticArtKey(view: DialogueView): StaticArtAssetKey | null {
+  if (view.speakerId === "owner_nagi") {
+    const mood = view.portraitMood === "released" ? "relieved" : view.portraitMood ?? "normal";
+    return NAGI_PORTRAIT_STATIC_ART_KEYS[mood];
+  }
+  if (view.speakerId === "narrator" || view.speakerId === "station") return null;
+  const portraits = OWNER_PORTRAIT_STATIC_ART_KEYS[view.speakerId as OwnerId];
+  return portraits[view.portraitMood === "released" || view.portraitMood === "relieved" ? "released" : "normal"];
 }
 
 function createItemSketch(
@@ -168,10 +180,15 @@ function createItemSketch(
     element("span", "item-sketch__detail"),
     element("span", "item-sketch__fallback", fallback),
   );
+  const image = staticImage(ITEM_STATIC_ART_KEYS[itemId], "item-sketch__image");
+  image.addEventListener("load", () => visual.classList.add("item-sketch--static"), { once: true });
+  image.addEventListener("error", () => image.remove(), { once: true });
+  visual.prepend(image);
   return visual;
 }
 
-function createPortrait(kind: PortraitKind): HTMLDivElement {
+function createPortrait(view: DialogueView): HTMLDivElement {
+  const kind = portraitKind(view.speakerId);
   const portrait = element("div", "dialogue-portrait");
   portrait.dataset.portrait = kind;
   portrait.setAttribute("aria-hidden", "true");
@@ -183,26 +200,62 @@ function createPortrait(kind: PortraitKind): HTMLDivElement {
     element("span", "dialogue-portrait__accessory"),
   );
   portrait.append(element("span", "dialogue-portrait__glow"), figure);
+  const artKey = portraitStaticArtKey(view);
+  if (artKey) {
+    const image = staticImage(artKey, "dialogue-portrait__image", "eager");
+    image.addEventListener("load", () => portrait.classList.add("dialogue-portrait--static"), { once: true });
+    image.addEventListener("error", () => image.remove(), { once: true });
+    portrait.append(image);
+  }
   return portrait;
 }
 
 function createTitleAtmosphere(): HTMLDivElement {
   const atmosphere = element("div", "title-atmosphere");
   atmosphere.setAttribute("aria-hidden", "true");
-  atmosphere.append(
+
+  const keyVisual = element("img", "title-atmosphere__image");
+  keyVisual.alt = "";
+  keyVisual.decoding = "async";
+  keyVisual.loading = "eager";
+  keyVisual.setAttribute("fetchpriority", "high");
+  keyVisual.addEventListener(
+    "load",
+    () => {
+      atmosphere.classList.add("title-atmosphere--ready");
+    },
+    { once: true },
+  );
+  keyVisual.addEventListener(
+    "error",
+    () => {
+      keyVisual.remove();
+      atmosphere.classList.add("title-atmosphere--fallback");
+    },
+    { once: true },
+  );
+  keyVisual.src = getStaticArtAssetUrl(STATIC_ART_KEYS.titleKeyVisual);
+
+  const fallback = element("div", "title-atmosphere__fallback");
+  fallback.append(
     element("span", "title-atmosphere__window"),
     element("span", "title-atmosphere__lamp"),
     element("span", "title-atmosphere__bench"),
     element("span", "title-atmosphere__umbrella"),
     element("span", "title-atmosphere__reflection"),
   );
+  atmosphere.append(keyVisual, fallback);
   return atmosphere;
 }
 
 function createFinalChoiceVisual(): HTMLDivElement {
   const visual = element("div", "final-choice-visual");
   visual.setAttribute("aria-hidden", "true");
+  const image = staticImage(STATIC_ART_KEYS.finalChoiceVisual, "final-choice-visual__image", "eager");
+  image.addEventListener("load", () => visual.classList.add("final-choice-visual--static"), { once: true });
+  image.addEventListener("error", () => image.remove(), { once: true });
   visual.append(
+    image,
     element("span", "final-choice-visual__sky"),
     element("span", "final-choice-visual__lamp"),
     element("span", "final-choice-visual__train"),
@@ -212,10 +265,14 @@ function createFinalChoiceVisual(): HTMLDivElement {
   return visual;
 }
 
-function createEndingVisual(): HTMLDivElement {
+function createEndingVisual(endingId: EndingView["endingId"]): HTMLDivElement {
   const visual = element("div", "ending-visual");
   visual.setAttribute("aria-hidden", "true");
+  const image = staticImage(ENDING_STATIC_ART_KEYS[endingId], "ending-visual__image", "eager");
+  image.addEventListener("load", () => visual.classList.add("ending-visual--static"), { once: true });
+  image.addEventListener("error", () => image.remove(), { once: true });
   visual.append(
+    image,
     element("span", "ending-visual__sky"),
     element("span", "ending-visual__lamp"),
     element("span", "ending-visual__train"),
@@ -455,11 +512,11 @@ export class AppUi {
     this.dialogueLayer.setAttribute("aria-modal", "true");
     this.dialogueLayer.tabIndex = -1;
     this.syncBackgroundInteractivity();
-    const portraitIdentity = portraitKind(view);
+    const portraitIdentity = portraitKind(view.speakerId);
     this.dialogueLayer.className = `dialogue-layer dialogue-layer--${view.tone ?? "station"}`;
     this.dialogueLayer.dataset.portrait = portraitIdentity;
     if (isResolutionDialogue(view)) this.dialogueLayer.classList.add("dialogue-layer--resolution");
-    const portrait = createPortrait(portraitIdentity);
+    const portrait = createPortrait(view);
     const panel = element("section", "dialogue-panel");
     const speaker = element("h2", "dialogue-panel__speaker", view.speaker);
     speaker.id = "active-dialogue-speaker";
@@ -741,6 +798,11 @@ export class AppUi {
       if (!entry.unlocked) card.classList.add("record-card--locked");
       const scene = element("span", "record-card__scene");
       scene.setAttribute("aria-hidden", "true");
+      if (entry.unlocked) {
+        const image = staticImage(ENDING_STATIC_ART_KEYS[entry.endingId], "record-card__image");
+        image.addEventListener("error", () => image.remove(), { once: true });
+        scene.append(image);
+      }
       card.append(
         scene,
         element("span", "record-card__label", entry.unlocked ? entry.label : "未記録"),
@@ -764,14 +826,18 @@ export class AppUi {
     this.screenLayer.hidden = false;
     this.syncBackgroundInteractivity();
     this.screenLayer.className = "screen-layer screen-layer--memory";
-    const itemId = memoryItemId(view);
+    const itemId = view.itemId;
     this.screenLayer.dataset.memoryItem = itemId;
     this.screenLayer.style.setProperty("--memory-accent", view.color ?? view.accent ?? "#d68f7c");
     this.screenLayer.replaceChildren();
     const card = element("main", "memory-scene");
     card.dataset.memoryItem = itemId;
     const visual = element("figure", "memory-scene__visual");
+    const memoryImage = staticImage(MEMORY_STATIC_ART_KEYS[view.memoryId], "memory-scene__image", "eager");
+    memoryImage.addEventListener("load", () => visual.classList.add("memory-scene__visual--static"), { once: true });
+    memoryImage.addEventListener("error", () => memoryImage.remove(), { once: true });
     visual.append(
+      memoryImage,
       createItemSketch(itemId, ITEM_FALLBACK_BY_ID[itemId], "memory-item-sketch item-sketch"),
       element("figcaption", "memory-scene__visual-caption", view.visual ?? MEMORY_CAPTION_BY_ITEM[itemId]),
     );
@@ -831,7 +897,7 @@ export class AppUi {
     continueButton.type = "button";
     continueButton.addEventListener("click", onCredits);
     narrative.append(continueButton);
-    article.append(narrative, createEndingVisual());
+    article.append(narrative, createEndingVisual(view.endingId));
     this.screenLayer.append(article);
     continueButton.focus();
   }
@@ -850,9 +916,9 @@ export class AppUi {
     const credits: readonly [string, string][] = [
       ["企画・物語", "Original browser game production"],
       ["ゲームエンジン", "Phaser 3"],
-      ["描画・音", "Original procedural shapes / Web Audio"],
+      ["描画・音", "Project-original art / Phaser / Web Audio"],
       ["フォント", "OS標準の日本語フォント"],
-      ["素材", "外部画像・外部音源は使用していません"],
+      ["素材", "本作向けに制作・編集したオリジナル画像。外部音源は使用していません"],
     ];
     for (const [term, description] of credits) {
       list.append(element("dt", undefined, term), element("dd", undefined, description));

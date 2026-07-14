@@ -1,202 +1,94 @@
-# PLAYTEST REPORT — Visual Overhaul V2
+# Playtest Report — Art Quality V3
 
-## 判定
+## Result
 
-`codex/visual-overhaul-v2`のローカルrelease candidateは、タイトルから3種類のendingまでの既存進行を維持したまま、Phaser GraphicsとDOM/CSSによる完全オリジナルのprocedural artへ更新できている。
+2026-07-15のローカルrelease candidateは、必須の静的検査、通常操作ルート、E2E、desktop/mobile画面確認、Design QAをすべて通過した。save schema、content ID、collision、hotspot、ending条件はV2から変更していない。
 
-- `npm run check`: 成功
-- Vitest: 7 files / 57 tests 成功
-- Playwright: 6 files / 11 tests中11件成功
-- visual comparison: before 15枚 / after 20枚
-- desktop: 1280×720
-- mobile: 390×844、touch context
-- save schema: 変更なし、`saveVersion: 1`
+## Automated verification
 
-進行不能、入力不能、未処理page error、重大なconsole error、同一originのHTTP errorは最終E2Eで検出されていない。visual release commit `0704a5b`はGitHub Pagesへ配信済みで、公開URLに対するChromium desktop、390×844 touch、Microsoft Edgeの本番スモークも全件合格した。
+| Command / gate | Result |
+| --- | --- |
+| `npm run lint` | passed |
+| `npm run typecheck` | passed |
+| `npm run test` | 9 files / 75 tests passed |
+| `npm run test:e2e` | 13/13 passed in Chromium |
+| `npm run build` | passed |
+| `npm run check` | passed |
+| production sentinel | 1 JS bundle verified; no E2E/dev bridge |
+| manifest | 57 unique images, dimensions and budgets passed |
 
-## 確認環境
+Vite emitted the known non-failing warning that the Phaser-containing JavaScript chunk exceeds 500kB.
 
-- 実施日: 2026-07-14（Asia/Tokyo）
-- OS / shell: Windows / PowerShell
-- branch: `codex/visual-overhaul-v2`
-- Node.js: 24.16.0
-- npm: 11.13.0
-- Playwright: 1.61.1 / bundled Chromium
-- Phaser: 3.90.0
-- TypeScript: 6.0.3
-- Vite: 8.1.4
-- desktop viewport: 1280×720、device scale factor 1
-- mobile viewport: 390×844、touch / mobile context
+## Browser routes covered
 
-GitHub Actions runは[29304611687](https://github.com/himiko119/rain-shelter-station/actions/runs/29304611687)、Pages deployment IDは`5434973792`。deploy完了は2026-07-14 12:54:24、本番スモーク完了は12:55:18（Asia/Tokyo）である。
+- Title → start → controls → waiting room
+- Normal keyboard movement → red umbrella acquisition → correct passenger return → memory → save reload
+- Wrong return with item retention and staged hint progression
+- Pause, sound/text/reduced-motion settings and focusable controls
+- Save deletion, settings reset and ending-record reset
+- A「終電」、B「始発」、C「雨宿り」through the actual final-choice UI
+- 390×844 touch movement, interact, notebook, inventory and pause
+- All 57 manifest images through `Image.decode()`
+- Forced waiting-room background 404 followed by playable procedural fallback
 
-## 今回のvisual変更
-
-### World
-
-- 5 areaを`StationView.ts`のPhaser Graphicsで再構成した。
-- 待合室は木床、3つの雨窓、時計、bench、傘立て、写真機を持つ。
-- 改札口はterrazzo床、案内窓口、券売機、公衆電話、5つの改札を持つ。
-- 駅員室は台帳机、冷蔵庫、鏡、書類棚、椅子を持つ。
-- 跨線橋は金属床、3つの雨窓、bench、手すり、階段を持つ。
-- ホームは濡れたconcrete、駅名標、自販機、黄色線、線路、反射、stage 5／6の列車を持つ。
-- ナギ、駅員、5人の乗客、鏡側ナギをprimitiveと固有accessoryで区別した。
-- 6 itemは`ItemVisual.ts`の6つのshape rendererで個別に描く。
-- window／platform rain、lamp glow、wet reflection、rippleを有限数のGraphicsで描く。
-
-### DOM UI
-
-- titleへ雨窓、lamp、bench、赤い傘のstation sceneを追加した。
-- dialogueへ話者別のCSS portraitと返却時のglowを追加した。
-- notebookへ紙、布背、tab、余白stampを追加した。
-- inventoryとmemoryへ6 item ID別のCSS sketchを追加した。
-- item取得、返却、clue、saveでtoast sealを変える。
-- final choice、3 ending、ending recordsへ個別のstation tableauを追加した。
-- touch buttonを44px以上にし、390px幅でobjective、camera、controlsを分離した。
-
-runtimeのgame artworkに外部PNG／SVG、外部font、外部音声は使っていない。`public/favicon.svg`はgame sceneとは別のブラウザアイコンである。
-
-## Functional play routes
-
-### 通常入力の最初の返却
-
-1. titleで「はじめから」を選ぶ。
-2. 導入会話と操作説明を通常のEnter／button入力で進める。
-3. 矢印キーで待合室を移動し、Eで赤い傘を取得する。
-4. Iでinventory、Nでnotebookを開閉する。
-5. 足跡を調べ、赤い長靴の子まで通常移動する。
-6. 実UIの返却buttonで赤い傘を返す。
-7. 返却後会話と3拍のmemoryを進める。
-8. clockが00:18へ進むことを確認する。
-9. reload後に「つづきから」を選び、返却済みitemとmemoryが復元されることを確認する。
-
-このrouteはteleportや任意state注入を使わない。
-
-### E2E補助route
-
-- pause／settingsから音量、mute、text speed、一括表示、演出軽減を変更する。
-- save削除の確認を経てreloadし、進行、設定、ending recordが初期化されることを確認する。
-- named scenarioから実UIの最終選択へ接続し、A「終電」、B「始発」、C「雨宿り」を確認する。
-- 390×844でtouch方向入力、notebook、inventory、interact、pauseを確認する。
-- desktopとmobileのvisual stateを固定してscreenshotを取得する。
-
-named scenarioはE2E modeに限定され、本番bundleから`verify:prod`で開発sentinelが除外されていることを確認する。
-
-## Playwright 11 tests
-
-| File | Count | Coverage |
-| --- | ---: | --- |
-| `endings.spec.ts` | 3 | A／B／Cをfinal choiceの実buttonから到達 |
-| `gameplay.spec.ts` | 1 | 最初の忘れものを通常keyboard routeで返却し、saveを復元 |
-| `menus-and-save.spec.ts` | 2 | pause、accessibility settings、save削除 |
-| `mobile.spec.ts` | 1 | 390×844 bounds、touch移動、menu、camera外tap |
-| `visual-overhaul.spec.ts` | 2 | overhaulのdesktop 13 state、mobile 2 state |
-| `visual.spec.ts` | 2 | 従来の指定desktop 9画面、mobile 1画面 |
-| 合計 | 11 | 11 / 11成功 |
-
-`npm run check`にはPlaywrightを含めていないため、release判定では`npm run check`と`npm run test:e2e`の両方を別々に成功させている。
+The E2E fixture treats console error, page error, failed request and unexpected HTTP 4xx/5xx as failure. The intentional 404 test is isolated and asserts continued movement after the forced failure.
 
 ## Screenshot evidence
 
-### Counts
+### Before
 
-| Set | Desktop | Mobile | Total | Purpose |
-| --- | ---: | ---: | ---: | --- |
-| `artifacts/visual-overhaul/before/` | 13 | 2 | 15 | 改修前baseline |
-| `artifacts/visual-overhaul/after/` core | 13 | 2 | 15 | beforeと同一stateの比較 |
-| `artifacts/visual-overhaul/after/` supplemental | 3 | 2 | 5 | settings、A／C、mobile inventory／dialogue |
-| after total | 16 | 4 | 20 | 最終visual evidence |
+`artifacts/art-quality-v3/before/` contains 15 desktop and 5 mobile V2 captures.
 
-### After desktop — 1280×720
+### After
 
-| File | State | 目視結果 |
-| --- | --- | --- |
-| `01-title-1280x720.png` | title | logo、menu、雨窓、bench、傘の焦点が分離 |
-| `02-waiting-room-1280x720.png` | 待合室 | 木床、時計、傘立て、人物、HUDを識別可能 |
-| `03-ticket-gate-1280x720.png` | 改札口 | 窓口、券売機、改札、出口が識別可能 |
-| `04-station-office-1280x720.png` | 駅員室 | 台帳、冷蔵庫、鏡、棚が識別可能 |
-| `05-footbridge-1280x720.png` | 跨線橋 | 金属床、雨窓、手すり、階段が識別可能 |
-| `06-rain-platform-1280x720.png` | 雨のホーム | yellow line、線路、反射、駅名標が識別可能 |
-| `07-dialogue-1280x720.png` | dialogue | portrait、speaker、本文、送りUIが重ならない |
-| `08-note-1280x720.png` | notebook | tab、stamp、本文のcontrastとscroll領域が明確 |
-| `09-inventory-1280x720.png` | inventory | item sketch、名前、説明、state labelが明確 |
-| `10-item-acquired-1280x720.png` | item取得 | acquisition dialogueとreward toastを確認 |
-| `11-memory-1280x720.png` | memory | item写真、caption、本文、progressを確認 |
-| `12-final-choice-1280x720.png` | 最終選択 | platform sceneとroute別buttonを確認 |
-| `13-ending-b-1280x720.png` | B「始発」 | 夜明けpalette、本文、クレジット導線を確認 |
-| `16-settings-1280x720.png` | settings | form control、focus、danger zoneを確認 |
-| `17-ending-a-1280x720.png` | A「終電」 | 夜の列車と離脱のtableauを確認 |
-| `18-ending-c-1280x720.png` | C「雨宿り」 | stationに残る灯りのtableauを確認 |
+`artifacts/art-quality-v3/after/` contains 16 desktop and 4 mobile V3 captures:
 
-### After mobile — 390×844
+| File group | States |
+| --- | --- |
+| `01`–`06` | title and five station areas |
+| `07`–`12` | dialogue, notebook, inventory, acquisition, memory, final choice |
+| `13`, `17`, `18` | endings B, A, C |
+| `16` | settings |
+| mobile `14`, `15`, `19`, `20` | exploration, notebook, inventory, dialogue |
 
-| File | State | 目視結果 |
-| --- | --- | --- |
-| `14-mobile-exploration-390x844.png` | 探索 | camera、objective、touch controlsの上下分離を確認 |
-| `15-mobile-note-390x844.png` | notebook | 横overflowなし、tabと本文scrollを確認 |
-| `19-mobile-inventory-390x844.png` | inventory | 1 column、item visual、close buttonを確認 |
-| `20-mobile-dialogue-390x844.png` | dialogue | portrait非表示時の本文幅と送り操作を確認 |
+All 20 after images were opened and reviewed. `artifacts/art-quality-v3/review/compare-*.jpg` places old and new captures together. `design-qa-full.jpg` and `design-qa-focused.jpg` place the selected Option A source next to the live browser implementation.
 
-## 390×844 safe camera
+## Visual review
 
-portrait cameraはworldとtouch UIを同じfull-height viewportへ重ねない。
+| Surface | Result |
+| --- | --- |
+| Title | full-bleed key art, title and four menu actions remain readable |
+| Areas | five places are immediately distinguishable by architecture and light |
+| Nagi | red scarf/hair silhouette readable; four-direction movement and actions load |
+| Passengers | six NPC identities remain distinct at world and portrait scale |
+| Dialogue | portrait, speaker plate, body copy and advance hint do not overlap |
+| Inventory | shared item image, name, description and held/returned state are explicit |
+| Memory | story still, title, text, progress and return action read as one scene |
+| Final / endings | choice art and all three outcome compositions are unique |
+| 390×844 | no horizontal overflow; world, objective and controls remain vertically separated |
 
-| Value | Final |
-| --- | ---: |
-| world coordinate | 1120×630 |
-| zoom | 1.32 |
-| safe inset top / right / bottom / left | 62 / 12 / 303.84 / 12 px |
-| profile bottom request | 304 px |
-| safe width / height | 366 / 478.16 px |
-| camera viewport Y | 62 px |
-| camera viewport bottom | 約540.16 px |
-| safe visible world | 約277.273×362.242 world px |
-
-bottom request 304pxは`min(304, 844 × 0.36)`により303.84pxとなる。`ExplorationScene`はportrait時にcamera viewportをY=62、高さ478.16へ切り、follow offsetを0にする。objective chipはcamera下端より下、touch controlsより上に置く。
-
-E2Eは次を検証する。
-
-- document／body widthが390px以下
-- world、objective、controlsがviewport内
-- objective bottomがcontrols top以下
-- 全touch targetが44×44px以上
-- screen Y=670のcamera外tapでplayer位置が変わらない
-- direction buttonのpointerdown／pointerupでplayerが移動する
+Formal Design QA result: `passed`. Average visual score: 4.65/5; no category is 2 or below.
 
 ## Save compatibility
 
-今回の変更はrenderer、camera、DOM/CSS、visual metadata、visual testに閉じている。`CURRENT_SAVE_VERSION`、storage key、serialized field、known ID validationは変更していない。
-
-- schema: `saveVersion: 1`
 - storage key: `rain-shelter-station.save.v1`
-- version 0 migration: 継続
-- visual設定: 既存`reducedMotion`を使用
+- schema: `saveVersion: 1`
+- version-0 migration: unchanged
+- malformed, unknown-ID and future-version rejection: unchanged and unit-tested
 
-既存saveのmigrationを要求するvisual-only fieldは追加していない。
+Static art state is not serialized. Loading or failing an image cannot alter progression or save validity.
 
-## Final local build
+## Performance and resilience
 
-| Asset | Raw | Gzip |
-| --- | ---: | ---: |
-| HTML | 0.68 kB | 0.46 kB |
-| JavaScript | 1,372.22 kB | 370.74 kB |
-| JavaScript source map | 10,288.55 kB | — |
-| CSS | 57.64 kB | 13.29 kB |
+- Runtime static image total: 4,048,796 bytes.
+- Backgrounds and story stills are WebP; alpha sprites and item art use optimized PNG/WebP.
+- Phaser preloads world-consumed images; DOM stills load when needed.
+- Re-entering a Scene does not duplicate registered animation keys.
+- Reduced-motion freezes decorative loops and uses static action frames.
 
-Viteの非失敗warningは、Phaserを含むJavaScript chunkが500 kBを超えるという1種類だけである。TypeScript、Vite build、production sentinel scanは成功している。
+## Remaining non-blockers
 
-## Production verification
-
-`npm run verify:live`を公開URLへ実行し、次を確認した。
-
-| Profile | Browser | Result |
-| --- | --- | --- |
-| desktop 1280×720 | Chromium 149.0.7827.55 | 合格 |
-| mobile 390×844 touch | Chromium 149.0.7827.55 | 合格 |
-| desktop 1280×720 | Microsoft Edge 150.0.4078.65 | 合格 |
-
-全profileでタイトルから開始し、CanvasとDOM HUDを表示した。初回user gesture後のAudioContextは`running`、`rain-shelter-station.save.v1`作成後のreloadと「つづきから」は成功、faviconはHTTP 200、E2E bridgeは`undefined`だった。HTTP 4xx/5xx、request failure、page error、console errorは0件である。mobileは横overflowなし、objectiveとcontrolsの非重複、44px以上の全touch targetを再確認した。
-
-`artifacts/playtest/11-production-*`〜`13-production-*`は今回の公開URLから再撮影し、3枚すべて目視した。desktop ChromiumとEdgeは同等の構図で、mobileはworld下端、objective、touch controlsが縦に分離している。
-
-残る非ブロッカーはFirefox／WebKitの同等確認と、Phaserを含む単一JavaScript chunkの初回load最適化である。
+- Firefox/WebKit do not have the same depth of automated coverage as Chromium.
+- System Japanese font metrics can vary by OS.
+- Phaser remains part of one large initial JavaScript chunk.
+- Mobile intentionally omits large dialogue busts to preserve text area.
