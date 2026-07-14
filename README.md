@@ -2,6 +2,8 @@
 
 名前を忘れた主人公ナギが、終電の来ない無人駅で6つの忘れものを持ち主へ返していく、見下ろし型の2D探索アドベンチャーです。5つのエリアを歩き、手がかりをノートで照合し、よみがえる記憶をたどって3種類の結末へ進みます。Phaser 3、TypeScript、Viteで実装した、ブラウザだけで遊べる静的サイトです。
 
+**[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
+
 ![タイトル画面](artifacts/playtest/01-title-1280x720.png)
 
 ![雨のホーム](artifacts/playtest/07-rain-platform-1280x720.png)
@@ -112,4 +114,4 @@ artifacts/playtest/      # 目視確認用スクリーンショット
 
 - Web Audioはブラウザの自動再生制限に従い、最初のクリックまたはキー操作の後に開始します。音声デバイスが使えない場合もゲーム進行は継続します。
 - Phaserを含む本番JavaScriptはViteのchunk size警告対象になります。これは現在の単一ゲームbundle構成によるもので、ビルド失敗ではありません。
-- 実ブラウザ確認とE2EはChrome / Chromiumを中心に実施しています。他エンジンでは描画やWeb Audioの細部が異なる場合があります。
+- 実ブラウザ確認とE2EはChromiumを中心に実施し、公開版はMicrosoft Edgeでも短いスモークテストを通しています。Firefox / WebKitでは描画やWeb Audioの細部が異なる場合があります。
