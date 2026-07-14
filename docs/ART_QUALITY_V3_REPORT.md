@@ -102,3 +102,7 @@ The only build warning is Vite's non-failing 500kB chunk warning for the Phaser-
 - Mobile intentionally prioritizes text over large dialogue portraits.
 - Phaser is still delivered in one large initial JavaScript chunk.
 - Static scenery is presentation-only; authoritative collision and exits remain the tested content geometry.
+
+## Production release
+
+PR [#1](https://github.com/himiko119/rain-shelter-station/pull/1) merged V3 into the Pages branch as `a55f3facfbf85cfb2c966be09a2fb0cc0823a15f`. Actions run [29355517252](https://github.com/himiko119/rain-shelter-station/actions/runs/29355517252) completed build and deploy successfully. The public URL passed Chromium desktop, Chromium 390×844 touch and Microsoft Edge checks with running audio, successful save/reload and zero browser/network errors.

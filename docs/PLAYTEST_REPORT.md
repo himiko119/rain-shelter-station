@@ -92,3 +92,7 @@ Static art state is not serialized. Loading or failing an image cannot alter pro
 - System Japanese font metrics can vary by OS.
 - Phaser remains part of one large initial JavaScript chunk.
 - Mobile intentionally omits large dialogue busts to preserve text area.
+
+## Production verification
+
+GitHub Pages release `a55f3fa` was verified at <https://himiko119.github.io/rain-shelter-station/>. Chromium desktop, Chromium 390×844 touch and Microsoft Edge each passed start, Canvas/DOM visibility, AudioContext `running`, save/reload, favicon/network, production-debug absence and zero-error checks. The three public screenshots in `artifacts/playtest/11-production-*` through `13-production-*` were opened after a stable post-fade capture and passed visual review.
