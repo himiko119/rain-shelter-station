@@ -1,6 +1,7 @@
 import { GAME_META } from "../content/meta";
 import { createInitialState } from "../core/initial-state";
 import type { GameState } from "../core/types";
+import { normalizeLoadedPlayerPosition } from "./position";
 import { parseSave, serializeSave } from "./validation";
 
 export const STORAGE_KEY = GAME_META.storageKey;
@@ -42,7 +43,10 @@ export class LocalStorageSaveAdapter {
       if (serialized === null) {
         return resolveFallback(this.fallback);
       }
-      return parseSave(serialized) ?? resolveFallback(this.fallback);
+      const parsed = parseSave(serialized);
+      return parsed
+        ? normalizeLoadedPlayerPosition(parsed)
+        : resolveFallback(this.fallback);
     } catch {
       return resolveFallback(this.fallback);
     }

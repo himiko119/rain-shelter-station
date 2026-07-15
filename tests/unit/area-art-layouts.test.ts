@@ -134,7 +134,7 @@ describe("area art layout data", () => {
   it("keeps every hotspot and exit reachable on the lightweight validation grid", () => {
     for (const layout of AREA_ART_LAYOUTS) {
       expect(
-        validateLayoutReachability(layout, { cellSize: 12, clearance: 0 }),
+        validateLayoutReachability(layout, { cellSize: 12, clearance: 14 }),
         layout.areaId,
       ).toEqual({ unreachableHotspotIds: [], unreachableExitIds: [] });
     }

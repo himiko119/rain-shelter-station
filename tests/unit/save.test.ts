@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getItem } from "../../src/game/content";
+import { getAreaArtLayout, getItem, isSafePoint } from "../../src/game/content";
 import {
   createInitialState,
   reduceGame,
@@ -222,6 +222,26 @@ describe("storage adapter", () => {
     expect(loadSave(storage, createInitialState())).toEqual(
       createInitialState(),
     );
+  });
+
+  it("normalizes a valid v1 legacy position without changing progress", () => {
+    const storage = new MemoryStorage();
+    const key = "legacy-position";
+    const legacyState: GameState = {
+      ...completedFirstReturn(),
+      areaId: "area_station_office",
+      playerPosition: { x: 200, y: 300, facing: "left" },
+    };
+    storage.setItem(key, serializeSave(legacyState));
+
+    const loaded = new LocalStorageSaveAdapter(storage, { key }).load();
+    const loadedPosition = loaded.playerPosition;
+
+    expect(loaded.saveVersion).toBe(1);
+    expect(loadedPosition.facing).toBe("left");
+    expect(loadedPosition).not.toEqual(legacyState.playerPosition);
+    expect(isSafePoint(getAreaArtLayout(loaded.areaId), loadedPosition, 14)).toBe(true);
+    expect({ ...loaded, playerPosition: legacyState.playerPosition }).toEqual(legacyState);
   });
 
   it("falls back safely for corrupt storage and catches storage failures", () => {

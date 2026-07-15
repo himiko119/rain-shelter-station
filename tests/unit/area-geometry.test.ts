@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   depthScaleAt,
+  findPathOnGrid,
   getAreaArtLayout,
   isReachableOnGrid,
   isSafePoint,
@@ -9,6 +10,7 @@ import {
   pointInInflatedPolygon,
   pointInPolygon,
   projectToSafePoint,
+  resolveSafeStep,
   type AreaArtLayout,
 } from "../../src/game/content/areaArtLayouts";
 
@@ -116,5 +118,61 @@ describe("area geometry helpers", () => {
       { x: 300, y: 200 },
       { cellSize: 10, clearance: 0 },
     )).toBe(false);
+  });
+
+  it("returns deterministic clearance-safe waypoints around furniture", () => {
+    const concourse = getAreaArtLayout("area_concourse");
+    const target = projectToSafePoint(
+      concourse,
+      { x: 570, y: 440 },
+      { clearance: 14 },
+    );
+    const options = { cellSize: 12, clearance: 14 } as const;
+    const first = findPathOnGrid(concourse, concourse.safeSpawn, target, options);
+    const second = findPathOnGrid(concourse, concourse.safeSpawn, target, options);
+
+    expect(first).not.toBeNull();
+    expect(second).toEqual(first);
+    expect(first?.[0]).toEqual({ x: concourse.safeSpawn.x, y: concourse.safeSpawn.y });
+    expect(first?.at(-1)).toEqual(target);
+    for (const point of first ?? []) expect(isSafePoint(concourse, point, 14)).toBe(true);
+  });
+
+  it("routes from the platform canopy corridor to the footbridge exit", () => {
+    const platform = getAreaArtLayout("area_rain_platform");
+    const start = projectToSafePoint(platform, { x: 250, y: 365 }, { clearance: 14 });
+    const target = projectToSafePoint(platform, { x: 82, y: 560 }, { clearance: 14 });
+    const path = findPathOnGrid(platform, start, target, {
+      cellSize: 12,
+      clearance: 14,
+      allowDiagonal: true,
+    });
+
+    expect(path).not.toBeNull();
+    for (const point of path ?? []) expect(isSafePoint(platform, point, 14)).toBe(true);
+  });
+
+  it("keeps logical feet safe and slides a blocked diagonal step", () => {
+    const base = getAreaArtLayout("area_waiting_room");
+    const layout: AreaArtLayout = {
+      ...base,
+      safeSpawn: { x: 100, y: 200, facing: "right" },
+      walkablePolygon: [
+        { x: 0, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 400 }, { x: 0, y: 400 },
+      ],
+      obstaclePolygons: [{
+        id: "cabinet",
+        points: [
+          { x: 190, y: 100 }, { x: 250, y: 100 }, { x: 250, y: 300 }, { x: 190, y: 300 },
+        ],
+      }],
+      exits: [],
+      hotspots: [],
+    };
+    const start = { x: 170, y: 200 };
+    const resolved = resolveSafeStep(layout, start, { x: 205, y: 215 }, 14);
+
+    expect(resolved).toEqual({ x: 170, y: 215 });
+    expect(isSafePoint(layout, resolved, 14)).toBe(true);
   });
 });

@@ -284,7 +284,7 @@ const concourseLayout: AreaArtLayout = {
     { id: "concourse_gate_right", points: [p(697, 318), p(760, 318), p(777, 414), p(700, 414)] },
     { id: "concourse_phone", points: [p(806, 330), p(887, 330), p(895, 406), p(800, 409)] },
     { id: "concourse_left_bench", points: [p(0, 415), p(111, 414), p(117, 492), p(0, 500)] },
-    { id: "concourse_bench", points: [p(850, 412), p(1092, 412), p(1103, 500), p(843, 496)] },
+    { id: "concourse_bench", points: [p(850, 412), p(1030, 412), p(1038, 500), p(843, 496)] },
   ],
   exits: [
     {
@@ -489,7 +489,7 @@ const footbridgeLayout: AreaArtLayout = {
   hotspots: [
     hotspot("footbridge_cassette_bench", 386, 346, 478, 360),
     hotspot("footbridge_ginkgo_student", 700, 315, 700, 315, 64),
-    hotspot("footbridge_high_window", 205, 160, 410, 320),
+    hotspot("footbridge_high_window", 205, 160, 485, 310),
     hotspot("footbridge_notice", 560, 210, 560, 290),
     hotspot("footbridge_railing", 310, 390, 405, 430),
   ],
@@ -549,7 +549,8 @@ const platformLayout: AreaArtLayout = {
   worldSize: WORLD_SIZE,
   safeSpawn: { x: 100, y: 560, facing: "right" },
   walkablePolygon: [
-    p(42, 315), p(678, 315), p(492, 610), p(0, 610), p(0, 532), p(35, 500),
+    p(517, 315), p(678, 315), p(492, 610), p(0, 610), p(0, 532),
+    p(35, 500), p(330, 491), p(330, 443), p(517, 443),
   ],
   obstaclePolygons: [
     { id: "platform_left_canopy_post", points: [p(18, 315), p(55, 315), p(60, 525), p(17, 525)] },
@@ -571,7 +572,7 @@ const platformLayout: AreaArtLayout = {
   hotspots: [
     hotspot("platform_drain_hairclip", 484, 514, 450, 520),
     hotspot("platform_station_sign", 282, 183, 335, 450),
-    hotspot("platform_vending_machine", 420, 300, 515, 390),
+    hotspot("platform_vending_machine", 420, 300, 530, 400),
     hotspot("platform_puddle", 300, 530, 300, 530),
     hotspot("platform_last_train", 830, 325, 570, 430, 64),
     hotspot("platform_dawn_train", 820, 315, 570, 430, 64),
@@ -869,17 +870,79 @@ function segmentIsSafe(
   return true;
 }
 
-export function isReachableOnGrid(
+/**
+ * Resolves a single logical-foot movement step without crossing room edges or
+ * inflated furniture. Diagonal input may slide along one safe axis.
+ */
+export function resolveSafeStep(
+  layout: AreaArtLayout,
+  start: Point,
+  desired: Point,
+  clearance = 14,
+): Point {
+  const safeClearance = Math.max(0, clearance);
+  const safeStart = isSafePoint(layout, start, safeClearance)
+    ? { x: start.x, y: start.y }
+    : projectToSafePoint(layout, start, { clearance: safeClearance });
+  const sampleStep = 4;
+  const canMoveTo = (candidate: Point): boolean =>
+    isSafePoint(layout, candidate, safeClearance)
+    && segmentIsSafe(layout, safeStart, candidate, safeClearance, sampleStep);
+
+  if (canMoveTo(desired)) return { x: desired.x, y: desired.y };
+
+  const deltaX = desired.x - safeStart.x;
+  const deltaY = desired.y - safeStart.y;
+  const horizontal = { x: desired.x, y: safeStart.y };
+  const vertical = { x: safeStart.x, y: desired.y };
+  const candidates = Math.abs(deltaX) >= Math.abs(deltaY)
+    ? [horizontal, vertical]
+    : [vertical, horizontal];
+  const slide = candidates.find(canMoveTo);
+  return slide ? { x: slide.x, y: slide.y } : safeStart;
+}
+
+function simplifySafePath(
+  layout: AreaArtLayout,
+  points: readonly Point[],
+  clearance: number,
+  sampleStep: number,
+): readonly Point[] {
+  const first = points[0];
+  if (!first || points.length < 2) return points;
+  const simplified: Point[] = [{ x: first.x, y: first.y }];
+  let anchorIndex = 0;
+  while (anchorIndex < points.length - 1) {
+    let nextIndex = points.length - 1;
+    const anchor = points[anchorIndex];
+    if (!anchor) break;
+    while (nextIndex > anchorIndex + 1) {
+      const candidate = points[nextIndex];
+      if (candidate && segmentIsSafe(layout, anchor, candidate, clearance, sampleStep)) break;
+      nextIndex -= 1;
+    }
+    const next = points[nextIndex];
+    if (!next) break;
+    simplified.push({ x: next.x, y: next.y });
+    anchorIndex = nextIndex;
+  }
+  return simplified;
+}
+
+/** Returns a deterministic, line-of-sight simplified grid path. */
+export function findPathOnGrid(
   layout: AreaArtLayout,
   start: Point,
   target: Point,
   options: ReachabilityOptions = {},
-): boolean {
+): readonly Point[] | null {
   const cellSize = Math.max(6, Math.round(options.cellSize ?? 16));
   const clearance = Math.max(0, options.clearance ?? 4);
   const allowDiagonal = options.allowDiagonal ?? true;
-  if (!isSafePoint(layout, start, clearance) || !isSafePoint(layout, target, clearance)) return false;
-  if (segmentIsSafe(layout, start, target, clearance, cellSize / 4)) return true;
+  if (!isSafePoint(layout, start, clearance) || !isSafePoint(layout, target, clearance)) return null;
+  if (segmentIsSafe(layout, start, target, clearance, cellSize / 4)) {
+    return [{ x: start.x, y: start.y }, { x: target.x, y: target.y }];
+  }
 
   const columns = Math.floor(layout.worldSize.width / cellSize) + 1;
   const rows = Math.floor(layout.worldSize.height / cellSize) + 1;
@@ -912,19 +975,43 @@ export function isReachableOnGrid(
 
   const startNode = closestNode(start);
   const targetNode = closestNode(target);
-  if (!startNode || !targetNode) return false;
+  if (!startNode || !targetNode) return null;
   const key = (column: number, row: number): string => `${column}:${row}`;
+  const startKey = key(startNode[0], startNode[1]);
   const targetKey = key(targetNode[0], targetNode[1]);
   const queue: Array<readonly [number, number]> = [startNode];
-  const visited = new Set<string>([key(startNode[0], startNode[1])]);
+  const visited = new Set<string>([startKey]);
+  const parentByKey = new Map<string, string | null>([[startKey, null]]);
+  const nodeByKey = new Map<string, readonly [number, number]>([[startKey, startNode]]);
   const cardinal = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
   const diagonal = [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const;
   const directions = allowDiagonal ? [...cardinal, ...diagonal] : cardinal;
+  let queueIndex = 0;
 
-  let current = queue.shift();
-  while (current) {
+  while (queueIndex < queue.length) {
+    const current = queue[queueIndex];
+    queueIndex += 1;
+    if (!current) continue;
     const [column, row] = current;
-    if (key(column, row) === targetKey) return true;
+    const currentKey = key(column, row);
+    if (currentKey === targetKey) {
+      const reversedGridPoints: Point[] = [];
+      let pathKey: string | null = targetKey;
+      while (pathKey !== null) {
+        const node = nodeByKey.get(pathKey);
+        if (!node) return null;
+        reversedGridPoints.push(pointAt(node[0], node[1]));
+        pathKey = parentByKey.get(pathKey) ?? null;
+      }
+      reversedGridPoints.reverse();
+      const fullPath = [
+        { x: start.x, y: start.y },
+        ...reversedGridPoints,
+        { x: target.x, y: target.y },
+      ];
+      return simplifySafePath(layout, fullPath, clearance, cellSize / 4);
+    }
+
     const currentPoint = pointAt(column, row);
     for (const [columnOffset, rowOffset] of directions) {
       const nextColumn = column + columnOffset;
@@ -938,11 +1025,22 @@ export function isReachableOnGrid(
         || !segmentIsSafe(layout, currentPoint, nextPoint, clearance, cellSize / 4)
       ) continue;
       visited.add(nextKey);
-      queue.push([nextColumn, nextRow]);
+      parentByKey.set(nextKey, currentKey);
+      const nextNode = [nextColumn, nextRow] as const;
+      nodeByKey.set(nextKey, nextNode);
+      queue.push(nextNode);
     }
-    current = queue.shift();
   }
-  return false;
+  return null;
+}
+
+export function isReachableOnGrid(
+  layout: AreaArtLayout,
+  start: Point,
+  target: Point,
+  options: ReachabilityOptions = {},
+): boolean {
+  return findPathOnGrid(layout, start, target, options) !== null;
 }
 
 export function validateLayoutReachability(
