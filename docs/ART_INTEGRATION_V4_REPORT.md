@@ -4,7 +4,7 @@
 
 Art Integration V4 changes the five static station illustrations from presentation backdrops into authored 2.5D stages. The current code connects each background to walkable geometry, furniture/architecture obstacles, exits, hotspot approaches, depth scale, actor grounding, lighting, rain, ripples, reflections, and foreground occlusion. Canvas and DOM UI now share one responsive stage.
 
-The committed visual evidence and completed local release gates support the V4 design/spatial acceptance result: **8.73 / 10**, with no open P0 or P1 finding in the audited scope. GitHub-hosted CI, deployment, and V4 public-site verification remain pending.
+The committed visual evidence and completed release gates support the V4 design/spatial acceptance result: **8.73 / 10**, with no open P0 or P1 finding in the audited scope. V4 is deployed and verified on the public GitHub Pages URL.
 
 ## Root causes addressed
 
@@ -133,7 +133,7 @@ The following results were rerun against the final local release candidate and a
 
 The current test sources cover geometry validity/reachability, keyboard and pointer containment, perspective monotonicity, marker restraint, effect registration, seven stage viewports, and desktop/mobile dialogue containment.
 
-The remaining release gates are GitHub-hosted CI, V4 GitHub Pages deployment, and the smoke route against the public HTTPS URL. The historical public verification in `docs/PLAYTEST_REPORT.md` still applies to V3 only until those gates complete.
+PR #2 merged as `27b3874cd748d20abe99f396109d40b2f8677bd7`. Actions run `29396133571` built and deployed Pages deployment `5453065521`; the four-profile public HTTPS smoke passed with zero errors, and the live JS/CSS filenames matched the local release build.
 
 ## Design QA result
 
@@ -172,12 +172,10 @@ The local `codex/art-integration-v4` history contains these V4 milestones:
 - `701ebaa` — record V4 visual-QA artifacts
 - `facdd16` — close final route, pointer, tablet, passenger-approach, and browser-matrix regressions
 
-This local history is not yet evidence of a successful GitHub Actions run, merge, or deployment.
+The implementation history was published through PR #2 and the verified merge/deployment record above.
 
 ## Release disposition
 
 **V4 design/spatial integration: passed.**
 
-**Local release certification: passed.**
-
-**Publication certification: pending.** Complete and record GitHub CI, deployment, and the public-site smoke before describing V4 as published.
+**Release certification: passed.** Art Integration V4 is published and production-verified.

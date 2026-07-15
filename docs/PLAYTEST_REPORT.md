@@ -22,7 +22,7 @@ Art Integration V4は、背景画像を表示するだけだったV3の探索空
 
 `npm run test:visual-geometry` covers named scenarios, real keyboard and pointer input, 14px-safe feet, walls/windows/furniture/track edges, hotspot approaches, exit polygons, pointer waypoints, actor perspective, marker reveal and environmental effects. `npm run verify:stage-layout` covers the shared Canvas/DOM stage at 1280×720, 1366×768, 1536×864, 1920×1080, 2560×1440, 390×844 and 844×390, plus desktop/mobile dialogue containment.
 
-The complete V4 local gate is recorded. The published GitHub Pages site has not yet been verified as V4; deployment and the public-URL smoke remain the final release gates.
+The complete V4 local gate and the published GitHub Pages smoke are recorded. The public bundle filenames match the release build and all four browser profiles passed.
 
 ## V4 screenshot and video evidence
 
@@ -47,6 +47,12 @@ The 24 after screenshots are numbered `01`–`24` across the three viewport fold
 The V4 evidence is separate from the retained baseline in `artifacts/art-integration-v4/before/` and the earlier Art Quality V3 evidence in `artifacts/art-quality-v3/`.
 
 The local production-build browser matrix is captured in `artifacts/playtest/11-production-desktop-1280x720.png` through `14-production-firefox-1280x720.png`. All four frames were opened and visually reviewed after the automated zero-error, audio, save/reload, layout, and asset checks passed.
+
+## V4 production verification
+
+PR [#2](https://github.com/himiko119/rain-shelter-station/pull/2) merged as `27b3874cd748d20abe99f396109d40b2f8677bd7`. GitHub Actions run [29396133571](https://github.com/himiko119/rain-shelter-station/actions/runs/29396133571) built and deployed Pages deployment `5453065521` successfully at 2026-07-15 16:04:43 JST.
+
+`npm run verify:live` then exercised <https://himiko119.github.io/rain-shelter-station/> in Chromium 149 desktop, Chromium 149 at 390×844 touch, Edge 150, and Firefox 151. Every profile started from title, displayed Canvas and DOM HUD, reached `AudioContext: running` after the user gesture, wrote and restored the save, served the favicon and runtime assets without 404, exposed no production E2E bridge, and emitted zero console, page, request, or HTTP errors. The live JS/CSS filenames matched the final local build.
 
 ## Historical Art Quality V3 record
 

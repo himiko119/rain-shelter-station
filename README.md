@@ -4,9 +4,7 @@
 
 **[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
 
-> Art Quality V3はGitHub Pagesへ公開済みです。release merge commit `a55f3fa` を2026-07-15 02:52（JST）に配信しました。
-
-> Art Integration V4はローカルrelease candidateです。Unit 94件、E2E 37件、V4専用geometry／stage検証、build／production sentinel、Chromium・390×844 touch・Edge・Firefoxのローカル本番スモークまで通過しています。公開URLは、reviewed merge、Pages配信、公開後スモークが終わるまではV3です。
+> Art Integration V4はGitHub Pagesへ公開済みです。PR [#2](https://github.com/himiko119/rain-shelter-station/pull/2) のmerge commit `27b3874` を2026-07-15 16:04（JST）に配信し、Chromium desktop、390×844 touch、Microsoft Edge、Firefoxで公開URLを再検証しました。
 
 ## Art Integration V4
 
@@ -99,7 +97,7 @@ npm run check
 
 `npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。`npm run test:visual-geometry` はgeometryのfocused Vitestと14件のvisual-geometry E2E、`npm run verify:stage-layout` は7 viewportとdialogue containmentからなる9件のE2Eを実行します。完全なブラウザ回帰は別に `npm run test:e2e` を実行してください。Playwright系コマンドはport 4173の競合を避けるため直列実行します。
 
-Art Integration V4で記録済みの結果は、Vitest 94件、Playwright E2E 37件、visual-geometry focused Vitest 15件＋E2E 14件、stage-layout E2E 9件の成功です。`npm run check` と4ブラウザプロファイルのローカル本番スモークも通過しました。V4 after evidenceは24枚、移動動画は5本です。Pages配信と公開URL上の再検証が残りのrelease gateです。
+Art Integration V4で記録済みの結果は、Vitest 94件、Playwright E2E 37件、visual-geometry focused Vitest 15件＋E2E 14件、stage-layout E2E 9件の成功です。`npm run check`、Pages配信、4ブラウザプロファイルの公開URLスモークも通過しました。V4 after evidenceは24枚、移動動画は5本です。
 
 履歴として、`codex/art-quality-v3` はVitest 75件、Playwright E2E 13件中13件、`npm run check` に成功し、`artifacts/art-quality-v3/before/` と `after/` に各20枚の証跡を保存しています。
 
@@ -151,6 +149,6 @@ Art Integration V4でもsave schemaを変更しておらず、引き続き `save
 - Web Audioはブラウザの自動再生制限に従い、最初のクリックまたはキー操作の後に開始します。音声デバイスが使えない場合もゲーム進行は継続します。
 - V4 buildはHTML 0.68 kB（gzip 0.46 kB）、JavaScript 1,426.81 kB（gzip 386.84 kB）、CSS 80.43 kB（gzip 17.85 kB）です。Phaserを含むJavaScriptだけがViteの500 kB chunk警告対象になりますが、ビルド失敗ではありません。
 - Chromium 149、Windows Microsoft Edge 150、Firefox 151はローカルproduction buildでスモーク済みです。WebKitはChromiumと同じ深さでは未確認です。
-- 公開URLの検証記録は現時点ではArt Quality V3のものです。Art Integration V4はPages deploymentとproduction smokeの完了後に公開版として扱います。
+- 公開URLのV4検証はChromium系3プロファイルとFirefoxの同一スモークルートを通しています。WebKitは同じ深さでは未確認です。
 
 公開前後の確認手順と現在の状態は [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)、画面・E2Eの記録は [docs/PLAYTEST_REPORT.md](docs/PLAYTEST_REPORT.md) を参照してください。

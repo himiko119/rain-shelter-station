@@ -4,7 +4,7 @@
 
 Art Integration V4 is evaluated as a playable 2.5D stage: stage occupancy, authored movement geometry, actor grounding and perspective, foreground/background ordering, environment effects, contextual markers, DOM/Canvas integration, motion evidence, mobile composition, and the memory presentation.
 
-This score is based on the committed V4 captures and review sheets, sampled frames from all five movement videos, the full local regression suite, and local production-build browser verification. GitHub-hosted CI, deployment, and public-site verification remain separate release gates.
+This score is based on the committed V4 captures and review sheets, sampled frames from all five movement videos, the full regression suite, and production verification in Chromium, mobile Chromium, Edge, and Firefox. GitHub Pages deployment and public-site verification are complete.
 
 ### Primary evidence
 
@@ -73,10 +73,10 @@ Scores use a 1–10 scale. The 15 requested criteria total 131 points, for an av
 - Screenshots and automated checks do not establish full WCAG conformance; a specialist screen-reader audit remains outside this release scope.
 - The final local record includes 94 Vitest tests, 37 full Playwright E2E tests, 15 focused geometry Vitest tests, 14 visual-geometry E2E tests, and 9 stage-layout E2E tests.
 - Build, production sentinel, and local production smoke passed in Chromium desktop, Chromium touch, Edge, and Firefox with zero browser/network errors.
-- GitHub-hosted CI, GitHub Pages deployment, and the public-site smoke are not yet recorded as complete V4 gates.
+- GitHub Pages build/deploy completed for merge `27b3874`; the public JS/CSS matched the release build and the four-profile smoke passed with zero errors.
 
 ## Result
 
 **Design/spatial QA: passed — 8.73 / 10, no open P0 or P1 in the available evidence.**
 
-**Local release certification: passed. Publication certification: pending** GitHub CI, Pages deployment, and the public-site smoke.
+**Release certification: passed.** V4 is published, production-verified, and has no open P0 or P1 finding.
