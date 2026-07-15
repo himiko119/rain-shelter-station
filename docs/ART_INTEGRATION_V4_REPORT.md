@@ -135,6 +135,8 @@ The current test sources cover geometry validity/reachability, keyboard and poin
 
 PR #2 merged as `27b3874cd748d20abe99f396109d40b2f8677bd7`. Actions run `29396133571` built and deployed Pages deployment `5453065521`; the four-profile public HTTPS smoke passed with zero errors, and the live JS/CSS filenames matched the local release build.
 
+The final production audit also passed a 1920×1080 normal-input first-return route and a five-area movement/investigation matrix. The Full-HD stage occupied the exact viewport, the umbrella return reached its memory and survived reload, every area accepted movement and interaction, and all six frames passed visual review with zero browser/network errors.
+
 ## Design QA result
 
 `design-qa.md` scores the 15 requested V4 criteria at **8.73 / 10**. The available implementation, screenshot, and sampled movement evidence contains no open P0 or P1 finding.
