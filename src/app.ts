@@ -5,6 +5,7 @@ import {
   DIALOGUES,
   ENDING_DEFINITIONS,
   getArea,
+  getAreaArtLayout,
   getItem,
   LOST_ITEM_DEFINITIONS,
   MEMORY_DEFINITIONS,
@@ -225,6 +226,9 @@ export class GameApplication {
           store: this.store,
           activate: () => this.activateCurrentStateForE2E(),
           freezeVisuals: (frozen) => this.explorationScene.setVisualsFrozen(frozen),
+          stabilizeVisuals: (time) => this.explorationScene.stabilizeVisuals(time),
+          sceneProbe: () => this.explorationScene.getVisualProbe(),
+          worldToScreen: (point) => this.explorationScene.worldToScreen(point),
         });
       });
     } else if (import.meta.env.DEV) {
@@ -233,8 +237,8 @@ export class GameApplication {
         this.devPanelCleanup = mountDevPanel({
           snapshot: () => this.store.getState(),
           onWarp: (areaId: AreaId) => {
-            const area = getArea(areaId);
-            this.store.dispatch({ type: "enter-area", areaId, position: area.playerStart });
+            const position = getAreaArtLayout(areaId).safeSpawn;
+            this.store.dispatch({ type: "enter-area", areaId, position });
             this.ui.closeDialogue();
             this.ui.closeModal();
             this.ui.showGame();
@@ -243,6 +247,7 @@ export class GameApplication {
             this.syncInputGate();
           },
           onAdvanceHint: () => this.store.dispatch({ type: "advance-hint-time", elapsedMs: 90_000 }),
+          onToggleGeometry: () => this.explorationScene.toggleGeometryOverlay(),
           onResetRun: () => {
             this.store.dispatch({ type: "reset-run" });
             this.saveAdapter.clear();
