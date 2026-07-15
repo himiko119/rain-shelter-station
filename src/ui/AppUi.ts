@@ -314,6 +314,8 @@ export class AppUi {
   public constructor(root: HTMLElement) {
     root.replaceChildren();
     this.shell = element("div", "app-shell");
+    const stage = element("div", "game-stage");
+    const stageUi = element("div", "game-stage-ui");
     this.canvasHost = element("div", "game-world");
     this.canvasHost.id = "game-world";
     this.canvasHost.setAttribute("aria-label", "雨ノ間駅の探索画面");
@@ -360,8 +362,7 @@ export class AppUi {
     this.touchLayer = this.createTouchControls();
     this.touchLayer.hidden = true;
 
-    this.shell.append(
-      this.canvasHost,
+    stageUi.append(
       this.hud,
       this.objectiveChip,
       this.prompt,
@@ -371,6 +372,8 @@ export class AppUi {
       this.dialogueLayer,
       this.touchLayer,
     );
+    stage.append(this.canvasHost, stageUi);
+    this.shell.append(stage);
     root.append(this.shell);
   }
 

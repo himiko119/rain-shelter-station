@@ -328,16 +328,27 @@ export class ExplorationScene extends Phaser.Scene {
     const layout = resolveCameraLayout({ width: gameSize.width, height: gameSize.height });
     const portraitViewport = layout.mode === "portrait";
     camera.setViewport(
-      0,
-      portraitViewport ? layout.safeArea.y : 0,
-      gameSize.width,
-      portraitViewport ? layout.safeArea.height : gameSize.height,
+      layout.cameraViewport.x,
+      layout.cameraViewport.y,
+      layout.cameraViewport.width,
+      layout.cameraViewport.height,
     );
     camera.setZoom(layout.zoom.value);
     camera.roundPixels = layout.roundPixels;
-    camera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    if (!state.started || !this.player || layout.tracking.kind === "fixed") {
+    if (layout.tracking.kind === "fixed") {
+      camera.stopFollow();
+      camera.setDeadzone();
+      // A bounded camera whose viewport is as large as its world is clamped to
+      // the bounds origin by Phaser before centering. Fixed room views own an
+      // explicit 16:9 viewport, so remove bounds and place the world directly.
+      camera.removeBounds();
+      camera.centerOn(layout.tracking.center.x, layout.tracking.center.y);
+      return;
+    }
+
+    camera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    if (!state.started || !this.player) {
       camera.stopFollow();
       camera.setDeadzone();
       camera.centerOn(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
