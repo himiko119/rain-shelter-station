@@ -42,6 +42,8 @@ The public HTML referenced `assets/index-gPh6Jz8j.js` and `assets/index-BCkkwDqP
 
 The four public frames are `artifacts/playtest/11-production-desktop-1280x720.png` through `14-production-firefox-1280x720.png`. All were opened after capture and passed visual inspection.
 
+An additional deep public smoke used normal pointer/keyboard/UI input at 1920×1080. The measured stage and Canvas were exactly 1920×1080 at `(0, 0)`. The route completed title → red umbrella acquisition → footprint investigation → correct return → memory → save reload, with Web Audio running and no browser/network errors. Valid version-1 saves then opened each of the five areas in the production build; every area accepted movement and a nearby investigation with zero errors. All six resulting frames were visually inspected.
+
 ## V4 pre-publish gates
 
 Run the release gates serially so the Playwright commands do not contend for port 4173:

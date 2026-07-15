@@ -54,6 +54,8 @@ PR [#2](https://github.com/himiko119/rain-shelter-station/pull/2) merged as `27b
 
 `npm run verify:live` then exercised <https://himiko119.github.io/rain-shelter-station/> in Chromium 149 desktop, Chromium 149 at 390×844 touch, Edge 150, and Firefox 151. Every profile started from title, displayed Canvas and DOM HUD, reached `AudioContext: running` after the user gesture, wrote and restored the save, served the favicon and runtime assets without 404, exposed no production E2E bridge, and emitted zero console, page, request, or HTTP errors. The live JS/CSS filenames matched the final local build.
 
+The final deep smoke added a 1920×1080 normal-input route. Its stage and Canvas measured exactly 1920×1080 and remained centered. Without a production debug bridge, it acquired the red umbrella, investigated the footprints, returned the item to the child, opened the memory, confirmed clock progression to `00:18`, reloaded, and restored the save. A separate valid-save matrix opened all five production areas and confirmed movement plus a nearby investigation in each. The six captured states were opened and visually reviewed; browser, request, HTTP, console, and page error counts remained zero.
+
 ## Historical Art Quality V3 record
 
 ### Result

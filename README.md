@@ -97,7 +97,7 @@ npm run check
 
 `npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。`npm run test:visual-geometry` はgeometryのfocused Vitestと14件のvisual-geometry E2E、`npm run verify:stage-layout` は7 viewportとdialogue containmentからなる9件のE2Eを実行します。完全なブラウザ回帰は別に `npm run test:e2e` を実行してください。Playwright系コマンドはport 4173の競合を避けるため直列実行します。
 
-Art Integration V4で記録済みの結果は、Vitest 94件、Playwright E2E 37件、visual-geometry focused Vitest 15件＋E2E 14件、stage-layout E2E 9件の成功です。`npm run check`、Pages配信、4ブラウザプロファイルの公開URLスモークも通過しました。V4 after evidenceは24枚、移動動画は5本です。
+Art Integration V4で記録済みの結果は、Vitest 94件、Playwright E2E 37件、visual-geometry focused Vitest 15件＋E2E 14件、stage-layout E2E 9件の成功です。`npm run check`、Pages配信、4ブラウザプロファイルの公開URLスモークも通過しました。公開版1920×1080では通常操作による最初の返却ルートと保存復元、全5エリアでは移動・調査・エラー0を追加確認しています。V4 after evidenceは24枚、移動動画は5本です。
 
 履歴として、`codex/art-quality-v3` はVitest 75件、Playwright E2E 13件中13件、`npm run check` に成功し、`artifacts/art-quality-v3/before/` と `after/` に各20枚の証跡を保存しています。
 
