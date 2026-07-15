@@ -1,6 +1,72 @@
-# 公開手順と本番確認 — Art Quality V3
+# 公開手順と本番確認 — Art Integration V4
 
-## Published release
+## Current V4 release status
+
+The public URL currently represents the verified Art Quality V3 release. Art Integration V4 has completed every local release gate, including the full E2E suite and a production-build smoke in Chromium, mobile Chromium, Edge, and Firefox. GitHub Pages deployment and the final public-URL smoke remain pending, so the public URL must not yet be described as V4.
+
+| Gate | V4 status |
+| --- | --- |
+| `npm run test` | completed: 94 Vitest tests passed |
+| `npm run test:visual-geometry` | completed: 15 focused Vitest and 14 visual-geometry E2E tests passed |
+| `npm run verify:stage-layout` | completed: 9 stage-layout E2E tests passed |
+| Local visual evidence | completed: 24 screenshots and five 11–13 second area videos |
+| `npm run test:e2e` | completed: 37/37 passed |
+| `npm run check` / `npm run verify:prod` | completed |
+| Local production smoke | completed: Chromium desktop, Chromium 390×844 touch, Edge, Firefox; zero errors |
+| GitHub Pages deployment | V4 not yet deployed |
+| `npm run verify:live` | V4 production verification not yet run |
+
+## V4 pre-publish gates
+
+Run the release gates serially so the Playwright commands do not contend for port 4173:
+
+```powershell
+npm ci
+npx playwright install chromium firefox
+npm run lint
+npm run typecheck
+npm run test
+npm run test:visual-geometry
+npm run verify:stage-layout
+npm run test:e2e
+npm run build
+npm run verify:prod
+```
+
+`npm run test:visual-geometry` runs the two focused geometry Vitest files and 14 Playwright tests for movement/reachability, actor perspective, markers and effects. `npm run verify:stage-layout` runs 9 Playwright tests across seven viewports and desktop/mobile dialogue containment. The authoritative complete browser regression gate passed 37/37 before publication.
+
+## V4 evidence capture
+
+The capture command defaults to the after phase:
+
+```powershell
+npm run capture:art-integration
+```
+
+It writes 24 screenshots and five area videos to:
+
+- `artifacts/art-integration-v4/after/desktop-1280/`
+- `artifacts/art-integration-v4/after/desktop-1920/`
+- `artifacts/art-integration-v4/after/mobile-390/`
+- `artifacts/art-integration-v4/after/video/`
+
+The five `01`–`05` WebM files are 11–13 seconds each. Contact sheets and sampled frames are stored in `artifacts/art-integration-v4/review/`. The retained baseline is under `artifacts/art-integration-v4/before/`.
+
+## V4 save and rollback behavior
+
+V4 retains the `rain-shelter-station.save.v1` key and `saveVersion: 1`. On load, an existing v1 player position outside the authored walkable geometry or inside a 14px-inflated obstacle is moved to a deterministic safe point in the same area. Story progress and facing are preserved. Because serialized fields and the schema version are unchanged, rolling back to the verified V3 release does not require a reverse migration.
+
+After a reviewed V4 merge reaches the Pages branch and the deployment workflow succeeds, run:
+
+```powershell
+npm run verify:live
+```
+
+Only then record V4 desktop, 390×844 touch, Edge, audio, save/reload, network, production-debug and screenshot results in this document.
+
+## Historical Art Quality V3 release
+
+### Published release
 
 | Item | Value |
 | --- | --- |
@@ -17,7 +83,7 @@
 
 The feature branch was pushed, reviewed through PR #1 and merged without force-push. The workflow built the merge commit, uploaded `dist` and deployed the same SHA to the `github-pages` environment.
 
-## Workflow result
+### Workflow result
 
 | Job | Result | Duration |
 | --- | --- | ---: |
@@ -26,7 +92,7 @@ The feature branch was pushed, reviewed through PR #1 and merged without force-p
 
 The workflow uses `actions/checkout@v7`, Node.js 22, `npm ci`, `npm run build`, `actions/upload-pages-artifact@v5` and `actions/deploy-pages@v5`. It needs no application secret or environment variable. Vite `base: "./"` keeps images, JavaScript, CSS and favicon valid under the repository subpath.
 
-## Release contents
+### Release contents
 
 - 57 typed project-original runtime images / 4,048,796 bytes
 - Five distinct station areas and three platform stages
@@ -37,7 +103,7 @@ The workflow uses `actions/checkout@v7`, Node.js 22, `npm ci`, `npm run build`, 
 - Procedural/CSS fallback for every progression-relevant visual
 - Save schema remains `saveVersion: 1`
 
-## Pre-publish gates
+### Pre-publish gates
 
 ```powershell
 npm ci
@@ -59,7 +125,7 @@ npm run test:e2e
 
 The sole build warning is the existing non-failing Phaser JavaScript chunk-size warning.
 
-## Production smoke
+### Production smoke
 
 `npm run verify:live` opens the actual HTTPS URL, starts the game, confirms Canvas and DOM HUD, triggers Web Audio, verifies the save key, reloads, checks that Continue is enabled, rejects production E2E/dev globals, checks favicon/network/browser errors and captures a stable post-fade frame.
 
@@ -77,15 +143,15 @@ Mobile also passed no-horizontal-overflow, objective/control separation and 44×
 
 All three show the V3 waiting-room illustration and normalized sprite/item art. The Edge and Chromium desktop compositions match; mobile keeps the world, objective and touch controls in separate vertical zones.
 
-## Deployment trigger
+### Deployment trigger
 
 `.github/workflows/deploy-pages.yml` runs on pushes to `codex/rain-shelter-station-game` and `workflow_dispatch`. A feature-branch push alone stores the work but does not publish it. Release changes should reach the Pages branch through a reviewed PR or a verified fast-forward/merge without force-push.
 
-## Rollback
+### Rollback
 
 If production develops a blank screen, asset 404, save regression or input failure, redeploy the previous known-good merge through the same workflow. Art V3 did not change the storage key, serialized fields or current save version, so rollback does not require reverse migration.
 
-## Remaining non-blockers
+### Remaining non-blockers
 
 - Firefox/WebKit do not have equivalent depth of automation.
 - System Japanese font metrics may vary by OS.
