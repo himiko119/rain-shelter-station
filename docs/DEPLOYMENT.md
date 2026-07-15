@@ -2,7 +2,7 @@
 
 ## Current V4 release status
 
-The public URL currently represents the verified Art Quality V3 release. Art Integration V4 has completed every local release gate, including the full E2E suite and a production-build smoke in Chromium, mobile Chromium, Edge, and Firefox. GitHub Pages deployment and the final public-URL smoke remain pending, so the public URL must not yet be described as V4.
+Art Integration V4 is published and verified at <https://himiko119.github.io/rain-shelter-station/>. Every local gate, the reviewed merge, the GitHub Pages build/deploy, public bundle identity, and the Chromium/Edge/Firefox production smoke completed successfully.
 
 | Gate | V4 status |
 | --- | --- |
@@ -13,8 +13,34 @@ The public URL currently represents the verified Art Quality V3 release. Art Int
 | `npm run test:e2e` | completed: 37/37 passed |
 | `npm run check` / `npm run verify:prod` | completed |
 | Local production smoke | completed: Chromium desktop, Chromium 390×844 touch, Edge, Firefox; zero errors |
-| GitHub Pages deployment | V4 not yet deployed |
-| `npm run verify:live` | V4 production verification not yet run |
+| GitHub Pages deployment | completed: merge `27b3874`, deployment `5453065521` |
+| `npm run verify:live` | completed on the public HTTPS URL: 4/4 profiles passed |
+
+## Published V4 release
+
+| Item | Result |
+| --- | --- |
+| Public URL | <https://himiko119.github.io/rain-shelter-station/> |
+| Repository | <https://github.com/himiko119/rain-shelter-station> |
+| Feature branch | `codex/art-integration-v4` |
+| Pages branch | `codex/rain-shelter-station-game` |
+| Pull request | [#2 Art Integration V4](https://github.com/himiko119/rain-shelter-station/pull/2) |
+| Release merge commit | `27b3874cd748d20abe99f396109d40b2f8677bd7` |
+| Actions run | [29396133571](https://github.com/himiko119/rain-shelter-station/actions/runs/29396133571) |
+| Pages deployment ID | `5453065521` |
+| Deploy completed | 2026-07-15 16:04:43 JST |
+| Production smoke completed | 2026-07-15 16:08 JST |
+
+The public HTML referenced `assets/index-gPh6Jz8j.js` and `assets/index-BCkkwDqP.css`, exactly matching the final local production build.
+
+| Profile | Browser | Audio | Save/reload | Errors | Result |
+| --- | --- | --- | --- | ---: | --- |
+| desktop 1280×720 | Chromium 149.0.7827.55 | running | passed | 0 | passed |
+| touch 390×844 | Chromium 149.0.7827.55 | running | passed | 0 | passed |
+| desktop 1280×720 | Microsoft Edge 150.0.4078.65 | running | passed | 0 | passed |
+| desktop 1280×720 | Firefox 151.0 | running | passed | 0 | passed |
+
+The four public frames are `artifacts/playtest/11-production-desktop-1280x720.png` through `14-production-firefox-1280x720.png`. All were opened after capture and passed visual inspection.
 
 ## V4 pre-publish gates
 
@@ -56,13 +82,13 @@ The five `01`–`05` WebM files are 11–13 seconds each. Contact sheets and sam
 
 V4 retains the `rain-shelter-station.save.v1` key and `saveVersion: 1`. On load, an existing v1 player position outside the authored walkable geometry or inside a 14px-inflated obstacle is moved to a deterministic safe point in the same area. Story progress and facing are preserved. Because serialized fields and the schema version are unchanged, rolling back to the verified V3 release does not require a reverse migration.
 
-After a reviewed V4 merge reaches the Pages branch and the deployment workflow succeeds, run:
+After future releases reach the Pages branch and the deployment workflow succeeds, run:
 
 ```powershell
 npm run verify:live
 ```
 
-Only then record V4 desktop, 390×844 touch, Edge, audio, save/reload, network, production-debug and screenshot results in this document.
+The V4 results above record desktop, 390×844 touch, Edge, Firefox, audio, save/reload, network, production-debug and screenshot verification.
 
 ## Historical Art Quality V3 release
 
