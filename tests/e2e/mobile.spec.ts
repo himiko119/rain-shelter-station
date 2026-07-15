@@ -84,3 +84,19 @@ test("390x844 layout stays in bounds and supports touch movement and menus", asy
   await stabilizeVisuals(page);
   expect((await page.screenshot()).byteLength).toBeGreaterThan(10_000);
 });
+
+test("portrait tablet objective stays above touch controls", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1_024 });
+  await loadScenario(page, "fresh-game");
+
+  const [objective, controls] = await Promise.all([
+    page.locator(".objective-chip").boundingBox(),
+    page.locator(".touch-controls").boundingBox(),
+  ]);
+
+  expect(objective).not.toBeNull();
+  expect(controls).not.toBeNull();
+  expect(objective!.y + objective!.height).toBeLessThanOrEqual(controls!.y);
+  expect(objective!.x).toBeGreaterThanOrEqual(0);
+  expect(objective!.x + objective!.width).toBeLessThanOrEqual(768);
+});

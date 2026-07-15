@@ -4,6 +4,7 @@ import { AREA_DEFINITIONS } from "../../src/game/content/areas";
 import {
   AREA_ART_LAYOUTS,
   getAreaArtLayout,
+  isReachableOnGrid,
   isSafePoint,
   pointInPolygon,
   validateLayoutReachability,
@@ -52,6 +53,38 @@ describe("area art layout data", () => {
         expect(
           isSafePoint(layout, definition.approachPoint),
           `${layout.areaId}/${definition.id} approach must be walkable`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps passenger approach points separated from actor feet and reachable", () => {
+    for (const area of AREA_DEFINITIONS) {
+      const layout = getAreaArtLayout(area.id);
+      const passengerIds = area.hotspots
+        .filter((definition) => definition.kind === "owner" || definition.kind === "mirror")
+        .map((definition) => definition.id);
+
+      for (const hotspotId of passengerIds) {
+        const definition = layout.hotspots.find((candidate) => candidate.id === hotspotId);
+        expect(definition, `${layout.areaId}/${hotspotId}`).toBeDefined();
+        if (!definition) continue;
+
+        const separation = Math.hypot(
+          definition.approachPoint.x - definition.artAnchor.x,
+          definition.approachPoint.y - definition.artAnchor.y,
+        );
+        expect(separation, `${layout.areaId}/${hotspotId} separation`).toBeGreaterThanOrEqual(44);
+        expect(
+          isSafePoint(layout, definition.approachPoint, 14),
+          `${layout.areaId}/${hotspotId} clearance`,
+        ).toBe(true);
+        expect(
+          isReachableOnGrid(layout, layout.safeSpawn, definition.approachPoint, {
+            cellSize: 12,
+            clearance: 14,
+          }),
+          `${layout.areaId}/${hotspotId} reachability`,
         ).toBe(true);
       }
     }

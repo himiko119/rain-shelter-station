@@ -196,8 +196,8 @@ const waitingRoomLayout: AreaArtLayout = {
   hotspots: [
     hotspot("waiting_umbrella_stand", 220, 400, 330, 445),
     hotspot("waiting_umbrella_footprints", 430, 464, 440, 490),
-    hotspot("waiting_red_boots_child", 760, 455, 760, 455, 64),
-    hotspot("waiting_old_listener", 612, 392, 612, 392, 64),
+    hotspot("waiting_red_boots_child", 760, 455, 700, 455, 64),
+    hotspot("waiting_old_listener", 612, 392, 612, 452, 64),
     hotspot("waiting_photo_booth_dormant", 914, 245, 810, 374),
     hotspot("waiting_photo_booth_output", 914, 245, 810, 374),
     hotspot("waiting_clock", 558, 75, 558, 388),
@@ -311,7 +311,7 @@ const concourseLayout: AreaArtLayout = {
   ],
   hotspots: [
     hotspot("concourse_station_attendant", 195, 319, 205, 375, 64),
-    hotspot("concourse_navy_bag_commuter", 795, 455, 795, 455, 64),
+    hotspot("concourse_navy_bag_commuter", 795, 455, 735, 455, 64),
     hotspot("concourse_commuter_bag", 818, 463, 770, 480),
     hotspot("concourse_ticket_machine_dormant", 335, 275, 335, 440),
     hotspot("concourse_ticket_machine", 335, 275, 335, 440),
@@ -410,7 +410,7 @@ const stationOfficeLayout: AreaArtLayout = {
   ],
   hotspots: [
     hotspot("office_refrigerator", 893, 397, 800, 530),
-    hotspot("office_moon_youth", 742, 558, 742, 558, 64),
+    hotspot("office_moon_youth", 742, 558, 682, 558, 64),
     hotspot("office_mirror_early", 199, 179, 545, 470),
     hotspot("office_mirror", 199, 179, 545, 470),
     hotspot("office_ledger", 288, 400, 530, 515),
@@ -488,7 +488,7 @@ const footbridgeLayout: AreaArtLayout = {
   ],
   hotspots: [
     hotspot("footbridge_cassette_bench", 386, 346, 478, 360),
-    hotspot("footbridge_ginkgo_student", 700, 315, 700, 315, 64),
+    hotspot("footbridge_ginkgo_student", 700, 315, 640, 300, 64),
     hotspot("footbridge_high_window", 205, 160, 485, 310),
     hotspot("footbridge_notice", 560, 210, 560, 290),
     hotspot("footbridge_railing", 310, 390, 405, 430),

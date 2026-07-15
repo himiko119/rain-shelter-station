@@ -619,6 +619,12 @@ export class ExplorationScene extends Phaser.Scene {
       pointer.y > camera.y + camera.height
     ) return;
     const worldPoint = pointer.positionToCamera(camera) as Phaser.Math.Vector2;
+    if (
+      worldPoint.x < 0
+      || worldPoint.x > WORLD_WIDTH
+      || worldPoint.y < 0
+      || worldPoint.y > WORLD_HEIGHT
+    ) return;
     const target = this.activeHotspots
       .map((active) => ({
         active,

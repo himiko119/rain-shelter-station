@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-import { chromium } from "@playwright/test";
+import { chromium, firefox } from "@playwright/test";
 
 const siteUrl = process.env.LIVE_SITE_URL ?? "https://himiko119.github.io/rain-shelter-station/";
 const screenshotRoot = resolve(process.env.LIVE_SCREENSHOT_DIR ?? "artifacts/playtest");
@@ -29,13 +29,23 @@ const profiles = [
     viewport: { width: 1280, height: 720 },
     screenshot: "13-production-edge-1280x720.png",
   },
+  {
+    name: "firefox-desktop",
+    engine: "firefox",
+    viewport: { width: 1280, height: 720 },
+    screenshot: "14-production-firefox-1280x720.png",
+  },
 ];
 
 await mkdir(screenshotRoot, { recursive: true });
 
 const results = [];
 for (const profile of profiles) {
-  const browser = await chromium.launch({ channel: profile.channel, headless: true });
+  const launcher = profile.engine === "firefox" ? firefox : chromium;
+  const launchOptions = profile.channel
+    ? { channel: profile.channel, headless: true }
+    : { headless: true };
+  const browser = await launcher.launch(launchOptions);
   const failures = [];
   try {
     const context = await browser.newContext({

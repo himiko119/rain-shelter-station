@@ -229,6 +229,12 @@ export class GameApplication {
           stabilizeVisuals: (time) => this.explorationScene.stabilizeVisuals(time),
           sceneProbe: () => this.explorationScene.getVisualProbe(),
           worldToScreen: (point) => this.explorationScene.worldToScreen(point),
+          flushPlayerPosition: () => {
+            this.store.dispatch({
+              type: "move-player",
+              position: this.explorationScene.getPlayerPosition(),
+            });
+          },
         });
       });
     } else if (import.meta.env.DEV) {

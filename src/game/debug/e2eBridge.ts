@@ -1,4 +1,4 @@
-import { getItem, LOST_ITEM_DEFINITIONS } from "../content";
+import { getAreaArtLayout, getItem, LOST_ITEM_DEFINITIONS } from "../content";
 import type { AreaId, Facing, GameState, ItemId, Point } from "../core/types";
 import type { GameStore } from "../core";
 import type { ExplorationVisualProbe } from "../../phaser/scenes/ExplorationScene";
@@ -36,6 +36,7 @@ export interface E2EBridgeDependencies {
   readonly stabilizeVisuals: (time: number) => void;
   readonly sceneProbe: () => ExplorationVisualProbe | null;
   readonly worldToScreen: (point: Point) => Point;
+  readonly flushPlayerPosition: () => void;
 }
 
 export interface RainShelterE2EBridge {
@@ -85,6 +86,14 @@ function placePlayer(
   store.dispatch({ type: "enter-area", areaId, position: { ...point, facing } });
 }
 
+function hotspotApproach(areaId: AreaId, hotspotId: string): Point {
+  const definition = getAreaArtLayout(areaId).hotspots.find(
+    (candidate) => candidate.id === hotspotId,
+  );
+  if (!definition) throw new Error(`Missing art hotspot ${areaId}/${hotspotId}`);
+  return definition.approachPoint;
+}
+
 function buildScenario(store: GameStore, id: ScenarioId): void {
   store.dispatch({ type: "start-new-game" });
   store.dispatch({ type: "mark-intro-seen" });
@@ -97,9 +106,10 @@ function buildScenario(store: GameStore, id: ScenarioId): void {
       const item = LOST_ITEM_DEFINITIONS[0];
       if (!item) throw new Error("Umbrella definition is missing.");
       acquireCurrentItem(store, item.id);
+      const approach = hotspotApproach("area_waiting_room", "waiting_red_boots_child");
       store.dispatch({
         type: "move-player",
-        position: { x: 760, y: 390, facing: "right" },
+        position: { ...approach, facing: "right" },
       });
       break;
     }
@@ -125,7 +135,7 @@ function buildScenario(store: GameStore, id: ScenarioId): void {
       store.dispatch({
         type: "enter-area",
         areaId: "area_rain_platform",
-        position: { x: 250, y: 365, facing: "right" },
+        position: { x: 100, y: 560, facing: "right" },
       });
       break;
     case "photo-return-ready": {
@@ -186,7 +196,12 @@ function buildScenario(store: GameStore, id: ScenarioId): void {
       placePlayer(store, "area_rain_platform", { x: 390, y: 415 }, "up");
       break;
     case "mobile-dialogue":
-      placePlayer(store, "area_waiting_room", { x: 760, y: 455 }, "right");
+      placePlayer(
+        store,
+        "area_waiting_room",
+        hotspotApproach("area_waiting_room", "waiting_red_boots_child"),
+        "right",
+      );
       break;
     case "mobile-touch":
       placePlayer(store, "area_waiting_room", { x: 560, y: 470 }, "down");
@@ -217,6 +232,8 @@ export function mountE2EBridge(dependencies: E2EBridgeDependencies): void {
     async waitForIdle(): Promise<void> {
       await document.fonts.ready;
       await nextFrame();
+      await nextFrame();
+      dependencies.flushPlayerPosition();
       await nextFrame();
     },
     async stabilizeVisuals(time = 2_400): Promise<void> {

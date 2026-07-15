@@ -4137,6 +4137,16 @@ button {
   -webkit-line-clamp: 2;
 }
 
+@media (min-width: 621px) and (max-width: 820px) and (orientation: portrait),
+  (min-width: 621px) and (orientation: portrait) and (pointer: coarse) {
+  .objective-chip {
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(180px, calc(env(safe-area-inset-bottom) + 168px));
+    left: max(18px, env(safe-area-inset-left));
+    width: min(326px, calc(100% - 36px));
+  }
+}
+
 .dialogue-layer {
   grid-template-columns: clamp(128px, 17vw, 214px) minmax(0, 1fr);
   width: 100%;
