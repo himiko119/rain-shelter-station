@@ -142,15 +142,11 @@ function buildScenario(store: GameStore, id: ScenarioId): void {
     }
     case "ending-a-ready":
       completeItems(store, 5);
-      store.dispatch({
-        type: "enter-area",
-        areaId: "area_rain_platform",
-        position: { x: 595, y: 355, facing: "right" },
-      });
+      placePlayer(store, "area_rain_platform", { x: 520, y: 430 }, "right");
       break;
     case "ending-b-ready":
       completeItems(store, 6);
-      placePlayer(store, "area_rain_platform", { x: 450, y: 520 }, "right");
+      placePlayer(store, "area_rain_platform", { x: 520, y: 430 }, "right");
       break;
     case "waiting-far":
       placePlayer(store, "area_waiting_room", { x: 420, y: 352 }, "down");
