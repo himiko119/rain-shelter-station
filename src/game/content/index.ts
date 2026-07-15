@@ -4,6 +4,7 @@ import { LOST_ITEM_DEFINITIONS } from "./items";
 import type { AreaDefinition, LostItemDefinition } from "./types";
 
 export { AREA_DEFINITIONS } from "./areas";
+export * from "./areaArtLayouts";
 export { CLUE_DEFINITIONS } from "./clues";
 export { DIALOGUES } from "./dialogues";
 export { ENDING_DEFINITIONS } from "./endings";
