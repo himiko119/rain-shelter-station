@@ -1,63 +1,82 @@
-# Design QA — Art Quality V3
+# Design QA — Art Integration V4
 
-## Comparison target
+## Audit scope
 
-- Source visual truth: `artifacts/art-quality-v3/design/ideate/option-a-quiet-signage.png`
-- Browser-rendered implementation: `artifacts/art-quality-v3/after/desktop/07-dialogue-1280x720.png`
-- Full-view comparison: `artifacts/art-quality-v3/review/design-qa-full.jpg`
-- Focused comparison: `artifacts/art-quality-v3/review/design-qa-focused.jpg`
-- Responsive evidence: `artifacts/art-quality-v3/review/compare-mobile.jpg`
-- Viewport / state: 1280×720, waiting-room passenger dialogue; 390×844 mobile dialogue, notebook, inventory and exploration
+Art Integration V4 is evaluated as a playable 2.5D stage: stage occupancy, authored movement geometry, actor grounding and perspective, foreground/background ordering, environment effects, contextual markers, DOM/Canvas integration, motion evidence, mobile composition, and the memory presentation.
 
-The source and implementation use the same 16:9 content frame. The implementation includes live characters, Japanese copy, interaction markers and actual HUD values that were intentionally represented as neutral blocks in the ideation target.
+This score is based on the committed V4 captures and review sheets, sampled frames from all five movement videos, the full local regression suite, and local production-build browser verification. GitHub-hosted CI, deployment, and public-site verification remain separate release gates.
 
-## Findings
+### Primary evidence
 
-No actionable P0, P1 or P2 difference remains.
+![V4 before and after comparison](artifacts/art-integration-v4/review/before-after-contact-sheet.jpg)
 
-- Fonts and typography: the Mincho display hierarchy, compact station-label lettering, body line height and button weights preserve the source hierarchy. Japanese text does not clip or truncate at either tested viewport.
-- Spacing and layout rhythm: the three HUD anchors, world focus, lower dialogue band and portrait/content split follow Option A. Actual controls retain 44px or larger targets and visible focus rings.
-- Colors and tokens: night ink, navy panel, rain teal, cream paper, amber lamp and coral memory accents use the shared V3 token roles. Disabled, focused, returned and dawn states remain distinguishable without color alone.
-- Image quality: production backgrounds, portraits, sprites, items, memories and ending stills are sharp at their display size. Alpha edges have no visible cyan matte, empty frame or baseline pumping. Runtime assets are real raster art; procedural/CSS art remains only as a load-failure fallback.
-- Copy and content: all labels are real game copy. No prompt text, placeholder, TODO, dummy label or generated lettering is baked into the art.
-- Responsiveness and accessibility: 390×844 has no horizontal overflow or persistent-control overlap. Dialogue portraits are intentionally omitted below 620px so the Japanese body text and controls remain usable. Reduced-motion, keyboard focus and semantic controls are retained.
+![V4 desktop review](artifacts/art-integration-v4/review/desktop-contact-sheet.jpg)
 
-## Comparison history
+![V4 mobile review](artifacts/art-integration-v4/review/mobile-contact-sheet.jpg)
 
-### Pass 1 — 2026-07-15
+![V4 movement sample review](artifacts/art-integration-v4/review/video-contact-sheet.jpg)
 
-- Earlier P0/P1/P2 findings: none in the first browser-rendered source comparison.
-- Fixes made in response: none required.
-- Post-pass evidence: `artifacts/art-quality-v3/review/design-qa-full.jpg` and `artifacts/art-quality-v3/review/design-qa-focused.jpg`.
+- Full-HD comparison: `artifacts/art-integration-v4/before/desktop-1920/01-waiting-room-1920x1080.png` and `artifacts/art-integration-v4/after/desktop-1920/01-waiting-room-1920x1080.png`
+- Desktop states: `artifacts/art-integration-v4/after/desktop-1280/02-waiting-room-1280x720.png` through `20-final-choice.png`
+- Mobile states: `artifacts/art-integration-v4/after/mobile-390/21-exploration-390x844.png` through `24-landscape-844x390.png`
+- Movement routes: `artifacts/art-integration-v4/after/video/01-waiting-room-after.webm` through `05-platform-after.webm`
+- Sampled movement frames: `artifacts/art-integration-v4/review/video-frames/`
 
-Before formal browser comparison, asset-production inspection found enclosed cyan generation-matte islands in two prop images. They were removed with the border-aware matte pipeline and the corrected shared item assets were used for the implementation capture.
+## Why the V3 result was insufficient
 
-## Primary interactions tested
+The previous `passed` result evaluated asset finish, mockup similarity, 1280×720 composition, mobile overflow, and progression stability. That evaluation was too narrow for a fixed-perspective exploration game. It did not make Full-HD stage occupancy, foot-point containment, furniture collision, perspective scaling, occlusion, effect-mask registration, or same-route movement video into release gates.
 
-- Title start and disabled continue state
-- Keyboard movement, inspect/acquire action and first item return
-- Passenger dialogue advance and return choice
-- Notebook tabs, inventory and settings
-- Final route choice and all three endings
-- 390×844 touch movement and touch menus
-- Save restore and data deletion
-- Missing-background procedural fallback
+V3 therefore passed polished illustrations while missing two P0 spatial failures: the Full-HD world was clamped to the upper-left, and the player could enter walls, windows, and furniture. This was an evaluation-model failure, not an individual-review failure. V4 replaces the prior mockup-centric conclusion with spatial, motion, and multi-viewport evidence.
 
-Console errors, page errors, HTTP failures and unexpected request failures were checked by the Playwright runtime guard. The full suite passed 13/13.
+## V4 scorecard
 
-## Follow-up polish
+Scores use a 1–10 scale. The 15 requested criteria total 131 points, for an average of **8.73 / 10** (equivalent to 4.37 / 5). Every category is 8 or higher.
 
-- P3: system-font metrics can vary slightly outside the tested Windows Chromium/Edge environment.
-- P3: mobile hides large dialogue portraits by design; a future dedicated mobile bust crop could add emotion without reducing text space.
-- P3: Phaser remains in one large JavaScript chunk; optimize only if measured first-load performance warrants it.
+| Criterion | Score | Evidence and assessment |
+| --- | ---: | --- |
+| Stage occupancy | 10 | The after capture fills the 1920×1080 stage; the large right/bottom void visible in the before capture is gone. See the Full-HD pair and `review/before-after-contact-sheet.jpg`. |
+| Stage centering | 10 | Desktop fills the 16:9 viewport and 844×390 uses symmetric side margins. Canvas, HUD, objective, and touch layers share one visible stage boundary. See `after/desktop-1920/01-waiting-room-1920x1080.png` and `after/mobile-390/24-landscape-844x390.png`. |
+| Background / walkable-range alignment | 9 | Five area layouts now define walkable polygons, obstacle polygons, exits, and hotspot approach points. Area screenshots and sampled route frames keep actors on illustrated floor surfaces. Current geometry/reachability tests encode the boundary rules. |
+| Actor grounding | 8 | Bottom-center feet and attached contact shadows read as floor contact across the waiting room, office, footbridge, and platform. The remaining difference in painterly density between small sprites and backgrounds prevents a higher score. |
+| Actor / furniture scale | 8 | NPCs are moved off bench surfaces and character scale follows the room depth. Far actors are intentionally small, but the scale transition remains more legible in motion than in isolated captures. See waiting-room near/far and office screenshots. |
+| Perspective scale | 9 | Per-area far/near scale profiles are present in `src/game/content/areaArtLayouts.ts`; the t=2s/t=6s movement samples show size change along the authored depth axis without a fixed-scale cut. |
+| Foreground / background ordering | 8 | Foreground definitions exist for the umbrella rack, benches, booth, gates, desk, shelves, bridge rails, platform columns, and related architecture. The desk and railing evidence reads correctly, although some occlusion states are subtle in a single frame. |
+| Character lighting | 8 | Actors receive zone-dependent tone, shadow, rim, and reflection treatment rather than a single global tint. Lamp and cool-window transitions are visible but deliberately restrained at gameplay scale. |
+| Light-source / background alignment | 9 | Authored zones correspond to illustrated lamps, windows, machines, and platform lighting. No isolated legacy ellipse is visible in the desktop or motion contact sheets. |
+| Rain mask | 9 | Indoor rain is confined to windows/door openings and outdoor rain to the platform/bridge regions; stage-specific effect definitions replace procedural coordinates. See the five-area desktop sheet and current marker/effect test definitions. |
+| Naturalness of investigation display | 9 | Persistent debug-like labels and marker crowds are absent. Normal captures show no markers at distance; near captures reveal one nearest target plus a DOM prompt. See `03-waiting-room-far.png`, `05-behind-umbrella-rack.png`, and `15-platform-edge.png`. |
+| UI / stage integration | 9 | HUD, objective, dialogue, notebook, inventory, memory, and touch controls remain inside `.game-stage`. Dialogue preserves the scene and the station-paper/metal material language replaces generic cards. See `16-dialogue.png` through `19-memory.png`. |
+| Appearance during movement | 8 | Five 11–13 second route artifacts and their sampled frames cover all areas. The samples show continuous depth placement, attached shadows, restrained markers, and stable camera framing. Full temporal smoothness still depends on replaying the WebM files on target hardware. |
+| Mobile operability | 8 | 390×844 separates world, objective, dialogue, notebook, and touch controls without horizontal overflow; 844×390 preserves 44px-class controls and symmetrical framing. Touch movement, menus, outside-stage rejection, 44px targets, and save/reload passed in the final local E2E and production-smoke runs. |
+| Memory composition | 9 | The memory image is now the dominant foreground, with a real-image blurred backdrop, paper narrative surface, integrated progress, and action. See `after/desktop-1280/19-memory.png`; the backdrop is intentionally quiet rather than decorative. |
 
-## Implementation checklist
+## P0 / P1 status
 
-- [x] Source and implementation opened in one full-view comparison.
-- [x] HUD, world and dialogue regions checked in focused comparisons.
-- [x] Typography, spacing, colors, imagery and copy explicitly reviewed.
-- [x] Desktop and 390×844 browser states reviewed.
-- [x] Primary interactions and browser error channels checked.
-- [x] No actionable P0/P1/P2 finding remains.
+| Severity | Original issue | V4 status | Evidence |
+| --- | --- | --- | --- |
+| P0 | Full-HD stage left large one-sided empty space | Resolved in available V4 evidence | Full-HD before/after pair and stage-layout implementation/tests |
+| P0 | Player could enter windows, walls, benches, booth, and non-floor space | Resolved in current geometry model and committed route evidence | `src/game/content/areaArtLayouts.ts`, `tests/e2e/movement-and-reachability.spec.ts`, five movement routes |
+| P1 | Actors looked pasted onto the illustration | Resolved to the V4 acceptance level | perspective profiles, contact shadows, light zones, waiting/office/bridge/platform captures |
+| P1 | Legacy lights, rain, and ripples did not match static art | Resolved in authored static-art paths | per-area effect definitions, `tests/e2e/markers-and-effects.spec.ts`, desktop/video sheets |
+| P1 | Persistent marker and floating-label clutter | Resolved | far/near screenshots and marker-restraint test definitions |
 
-final result: passed
+**Open P0: 0. Open P1: 0** within the audited V4 implementation and committed evidence.
+
+## Non-blocking observations
+
+- P2: the small character sprites remain visually crisper and less painterly than the background at some far-depth positions. Their grounding and scale are coherent, but a future higher-resolution character pass could improve material cohesion.
+- P3: the one-item inventory state leaves a deliberate empty record area. It is readable and thematic, though a denser luggage-tag arrangement could use the space more expressively as inventory grows.
+- P3: the autosave toast overlaps the top-center clock or modal header in several deterministic captures. It is transient and does not cover a primary action, but capture timing could suppress it for cleaner review evidence.
+
+## Evidence limits and release gates
+
+- Screenshots and automated checks do not establish full WCAG conformance; a specialist screen-reader audit remains outside this release scope.
+- The final local record includes 94 Vitest tests, 37 full Playwright E2E tests, 15 focused geometry Vitest tests, 14 visual-geometry E2E tests, and 9 stage-layout E2E tests.
+- Build, production sentinel, and local production smoke passed in Chromium desktop, Chromium touch, Edge, and Firefox with zero browser/network errors.
+- GitHub-hosted CI, GitHub Pages deployment, and the public-site smoke are not yet recorded as complete V4 gates.
+
+## Result
+
+**Design/spatial QA: passed — 8.73 / 10, no open P0 or P1 in the available evidence.**
+
+**Local release certification: passed. Publication certification: pending** GitHub CI, Pages deployment, and the public-site smoke.

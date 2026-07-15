@@ -9,6 +9,7 @@ export interface DevPanelDependencies {
   readonly onWarp: (areaId: AreaId) => void;
   readonly onAdvanceHint: () => void;
   readonly onResetRun: () => void;
+  readonly onToggleGeometry: () => boolean;
 }
 
 function makeButton(label: string, onClick: () => void): HTMLButtonElement {
@@ -42,6 +43,7 @@ export function mountDevPanel(dependencies: DevPanelDependencies): () => void {
     return { area, control };
   });
   utilities.append(
+    makeButton("ArtLayout 表示切替", () => dependencies.onToggleGeometry()),
     makeButton("ヒント時間 +90秒", dependencies.onAdvanceHint),
     makeButton("ランを初期化", dependencies.onResetRun),
   );

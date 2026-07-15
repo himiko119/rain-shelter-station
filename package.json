@@ -14,6 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:visual-geometry": "vitest run tests/unit/area-art-layouts.test.ts tests/unit/area-geometry.test.ts && playwright test tests/e2e/movement-and-reachability.spec.ts tests/e2e/actor-perspective.spec.ts tests/e2e/markers-and-effects.spec.ts",
+    "verify:stage-layout": "playwright test tests/e2e/stage-layout.spec.ts",
+    "capture:art-integration": "node scripts/capture-art-integration.mjs",
     "verify:prod": "node scripts/verify-production-build.mjs",
     "verify:live": "node scripts/verify-live-site.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:prod"

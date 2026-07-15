@@ -4,7 +4,24 @@
 
 **[公開版をブラウザでプレイ](https://himiko119.github.io/rain-shelter-station/)**
 
-> Art Quality V3はGitHub Pagesへ公開済みです。release merge commit `a55f3fa` を2026-07-15 02:52（JST）に配信し、公開URLをChromium desktop、390×844 touch、Microsoft Edgeで再検証しました。
+> Art Quality V3はGitHub Pagesへ公開済みです。release merge commit `a55f3fa` を2026-07-15 02:52（JST）に配信しました。
+
+> Art Integration V4はローカルrelease candidateです。Unit 94件、E2E 37件、V4専用geometry／stage検証、build／production sentinel、Chromium・390×844 touch・Edge・Firefoxのローカル本番スモークまで通過しています。公開URLは、reviewed merge、Pages配信、公開後スモークが終わるまではV3です。
+
+## Art Integration V4
+
+V4では、5枚の背景を論理ワールドとして正しく歩けるように、エリアごとの歩行可能ポリゴン、障害物、出口、ホットスポット接近位置、奥行き、照明、雨、水面反射、前景遮蔽をデータ化しました。
+
+- ナギの論理位置を足元へ統一
+- キーボード移動は壁・窓・家具・手すり・線路端へ侵入せず、障害物から14pxのクリアランスを維持
+- ポインターの行き先を安全点へ補正し、決定論的なグリッド経路で家具を迂回
+- 対象クリックは背景上の表示位置を使い、調べられる接近位置まで自動移動
+- 出口は画像に合わせたポリゴンで発火し、遷移先の安全スポーンへ移動
+- 既存 `saveVersion: 1` の位置がV4空間で不正な場合、進行を変えず同一エリアの安全点へ復旧
+
+![Art Integration V4の待合室](artifacts/art-integration-v4/after/desktop-1280/02-waiting-room-1280x720.png)
+
+比較・目視確認用の24枚は `artifacts/art-integration-v4/after/`、5エリアの11–13秒の移動動画は `artifacts/art-integration-v4/after/video/`、contact sheetと動画フレームは `artifacts/art-integration-v4/review/` にあります。
 
 ![Art Quality V3のタイトル画面](artifacts/art-quality-v3/after/desktop/01-title-1280x720.png)
 
@@ -22,6 +39,7 @@
 - 5エリア7背景、方向別Nagi animation、6人の乗客sprite、17portrait、6品、6記憶画
 - 自動セーブ、音量・ミュート・文字速度・一括表示・演出軽減設定
 - キーボード、マウス／ポインター、390px級のタッチ画面とUI-safeな追従cameraに対応
+- エリア別の安全な歩行geometry、14px clearance、ポインター経路探索、奥行きscale／lighting／前景遮蔽
 
 ## 操作
 
@@ -69,16 +87,21 @@ npm run lint
 npm run typecheck
 npm run test
 npm run test:watch
+npm run test:visual-geometry
+npm run verify:stage-layout
 npm run test:e2e
 npm run build
+npm run capture:art-integration
 npm run verify:prod
 npm run verify:live
 npm run check
 ```
 
-`npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。ブラウザE2Eは別に `npm run test:e2e` を実行してください。`npm run verify:live` は公開URLをChromium desktop、390×844 touch、Microsoft Edgeで検査し、本番証跡3枚を更新します。E2Eサーバーだけを起動する場合は `npm run dev:e2e` を使います。
+`npm run check` はlint、型検査、単体テスト、本番ビルド、本番bundleの開発用sentinel検査を順番に実行します。`npm run test:visual-geometry` はgeometryのfocused Vitestと14件のvisual-geometry E2E、`npm run verify:stage-layout` は7 viewportとdialogue containmentからなる9件のE2Eを実行します。完全なブラウザ回帰は別に `npm run test:e2e` を実行してください。Playwright系コマンドはport 4173の競合を避けるため直列実行します。
 
-`codex/art-quality-v3` の最終ローカル結果は、Vitest 75件、Playwright E2E 13件中13件成功、`npm run check` 成功です。`artifacts/art-quality-v3/before/` と `after/` に各20枚、同一画面比較とDesign QA証跡を `review/` に保存しています。390×844ではcamera下端を約540pxに収め、目的chipをtouch操作域の上へ分離することもE2Eと画面確認で検証しています。
+Art Integration V4で記録済みの結果は、Vitest 94件、Playwright E2E 37件、visual-geometry focused Vitest 15件＋E2E 14件、stage-layout E2E 9件の成功です。`npm run check` と4ブラウザプロファイルのローカル本番スモークも通過しました。V4 after evidenceは24枚、移動動画は5本です。Pages配信と公開URL上の再検証が残りのrelease gateです。
+
+履歴として、`codex/art-quality-v3` はVitest 75件、Playwright E2E 13件中13件、`npm run check` に成功し、`artifacts/art-quality-v3/before/` と `after/` に各20枚の証跡を保存しています。
 
 ## ディレクトリ構成
 
@@ -87,15 +110,15 @@ src/
   app.ts                 # Store、Phaser、DOM UI、セーブ、音の統合
   game/
     assets/              # 57画像のtyped manifest、Pages-safe URL、fallback state
-    content/             # エリア、忘れもの、手がかり、会話、記憶、結末
+    content/             # 物語contentと、5エリアのAreaArtLayout geometry
     core/                # シリアライズ可能な状態、reducer、selector、store
     input/               # キー／タッチを論理アクションへ変換
-    save/                # localStorage adapter、検証、version移行
+    save/                # localStorage adapter、検証、version移行、V4安全位置復旧
     systems/             # Web Audioによる環境音と効果音
     debug/               # 開発パネルとnamed E2E scenario bridge
   phaser/
     scenes/              # 探索を担当する単一のExplorationScene
-    view/                # 静的背景／sprite／6品とprocedural fallback、雨、responsive camera
+    view/                # 背景／sprite、奥行き、lighting、雨、前景遮蔽、geometry debug overlay
   ui/                    # 会話、ノート、所持品、設定、記録、タッチUI
   styles/                # テーマとレスポンシブCSS
 tests/
@@ -105,6 +128,7 @@ scripts/                 # 本番bundle検査
 docs/                    # 企画、設計、実装計画、テスト計画、プレイテスト記録
 artifacts/playtest/      # 目視確認用スクリーンショット
 artifacts/art-quality-v3/ # mood board、UI案、before / after、Design QA比較
+artifacts/art-integration-v4/ # spatial integrationのbefore / after、24枚、5動画、review sheets
 public/assets/art-v3/     # 出荷するproject-original画像57点
 ```
 
@@ -114,7 +138,7 @@ public/assets/art-v3/     # 出荷するproject-original画像57点
 
 タイトルまたはポーズ画面の設定から「セーブデータを削除」を選び、確認画面で削除できます。削除するとこのキーが消去され、現在の進行は初期状態へ戻ります。
 
-今回のビジュアル全面改修ではsave schemaを変更しておらず、引き続き`saveVersion: 1`です。
+Art Integration V4でもsave schemaを変更しておらず、引き続き `saveVersion: 1` です。旧v1セーブのプレイヤー位置だけが新しい歩行可能領域から外れる場合は、ロード時に14px clearanceを満たす同一エリア内の最寄り安全点へ補正します。位置以外の進行データと向きは保持します。
 
 ## 素材と利用条件
 
@@ -125,7 +149,8 @@ public/assets/art-v3/     # 出荷するproject-original画像57点
 ## 既知の制約
 
 - Web Audioはブラウザの自動再生制限に従い、最初のクリックまたはキー操作の後に開始します。音声デバイスが使えない場合もゲーム進行は継続します。
-- V3 buildはHTML 0.68 kB（gzip 0.45 kB）、JavaScript 1,395.21 kB（gzip 376.30 kB）、CSS 64.84 kB（gzip 14.78 kB）です。Phaserを含むJavaScriptだけがViteの500 kB chunk警告対象になりますが、ビルド失敗ではありません。
-- Firefox／WebKitはChromiumと同じ深さでは未確認です。Windows Microsoft Edgeは公開後スモーク対象です。
+- V4 buildはHTML 0.68 kB（gzip 0.46 kB）、JavaScript 1,426.81 kB（gzip 386.84 kB）、CSS 80.43 kB（gzip 17.85 kB）です。Phaserを含むJavaScriptだけがViteの500 kB chunk警告対象になりますが、ビルド失敗ではありません。
+- Chromium 149、Windows Microsoft Edge 150、Firefox 151はローカルproduction buildでスモーク済みです。WebKitはChromiumと同じ深さでは未確認です。
+- 公開URLの検証記録は現時点ではArt Quality V3のものです。Art Integration V4はPages deploymentとproduction smokeの完了後に公開版として扱います。
 
 公開前後の確認手順と現在の状態は [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)、画面・E2Eの記録は [docs/PLAYTEST_REPORT.md](docs/PLAYTEST_REPORT.md) を参照してください。

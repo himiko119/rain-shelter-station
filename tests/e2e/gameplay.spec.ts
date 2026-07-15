@@ -27,9 +27,9 @@ test("returns the first lost item through normal keyboard play and restores the 
   await expect(page.getByText("00:00", { exact: true })).toBeVisible();
   const initial = await snapshot(page);
 
-  await holdKey(page, "ArrowLeft", 700);
+  await holdKey(page, "ArrowDown", 360);
   const besideUmbrella = await snapshot(page);
-  expect(besideUmbrella.playerPosition.x).toBeLessThan(initial.playerPosition.x);
+  expect(besideUmbrella.playerPosition.y).toBeGreaterThan(initial.playerPosition.y);
 
   await page.keyboard.press("KeyE");
   await expect.poll(async () => (await snapshot(page)).inventoryItemIds).toContain(
@@ -51,8 +51,8 @@ test("returns the first lost item through normal keyboard play and restores the 
   await expect(page.getByRole("heading", { name: /白い星の補修/ })).toBeVisible();
   await page.getByRole("button", { name: "閉じる ×" }).click();
 
-  await holdKey(page, "ArrowDown", 700);
-  await holdKey(page, "ArrowRight", 300);
+  await holdKey(page, "ArrowDown", 300);
+  await holdKey(page, "ArrowRight", 750);
   await expect(page.getByRole("status").filter({ hasText: "床の足跡を見る" })).toBeVisible();
   await page.keyboard.press("KeyE");
   await expect.poll(async () => (await snapshot(page)).foundClueIds).toContain(
@@ -63,8 +63,7 @@ test("returns the first lost item through normal keyboard play and restores the 
   const childPrompt = page
     .getByRole("status")
     .filter({ hasText: "声をかける" });
-  await holdKey(page, "ArrowUp", 450);
-  for (let step = 0; step < 28 && !(await childPrompt.isVisible()); step += 1) {
+  for (let step = 0; step < 20 && !(await childPrompt.isVisible()); step += 1) {
     await holdKey(page, "ArrowRight", 150);
   }
   await expect(childPrompt).toBeVisible();

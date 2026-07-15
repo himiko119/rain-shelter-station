@@ -5,6 +5,7 @@ import {
   DIALOGUES,
   ENDING_DEFINITIONS,
   getArea,
+  getAreaArtLayout,
   getItem,
   LOST_ITEM_DEFINITIONS,
   MEMORY_DEFINITIONS,
@@ -170,17 +171,19 @@ export class GameApplication {
       onReady: () => this.renderHud(),
     };
     this.explorationScene = new ExplorationScene(bridge);
+    const renderPixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    this.ui.canvasHost.dataset.renderPixelRatio = String(renderPixelRatio);
     this.game = new Phaser.Game({
       type: import.meta.env.MODE === "e2e" ? Phaser.CANVAS : Phaser.AUTO,
       parent: this.ui.canvasHost,
-      width: 960,
-      height: 540,
+      width: 1_120,
+      height: 630,
       backgroundColor: "#071326",
       physics: {
         default: "arcade",
         arcade: { gravity: { x: 0, y: 0 }, debug: false },
       },
-      render: { antialias: true, pixelArt: false, roundPixels: true },
+      render: { antialias: true, pixelArt: false, roundPixels: false },
       scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.NO_CENTER,
@@ -223,6 +226,15 @@ export class GameApplication {
           store: this.store,
           activate: () => this.activateCurrentStateForE2E(),
           freezeVisuals: (frozen) => this.explorationScene.setVisualsFrozen(frozen),
+          stabilizeVisuals: (time) => this.explorationScene.stabilizeVisuals(time),
+          sceneProbe: () => this.explorationScene.getVisualProbe(),
+          worldToScreen: (point) => this.explorationScene.worldToScreen(point),
+          flushPlayerPosition: () => {
+            this.store.dispatch({
+              type: "move-player",
+              position: this.explorationScene.getPlayerPosition(),
+            });
+          },
         });
       });
     } else if (import.meta.env.DEV) {
@@ -231,8 +243,8 @@ export class GameApplication {
         this.devPanelCleanup = mountDevPanel({
           snapshot: () => this.store.getState(),
           onWarp: (areaId: AreaId) => {
-            const area = getArea(areaId);
-            this.store.dispatch({ type: "enter-area", areaId, position: area.playerStart });
+            const position = getAreaArtLayout(areaId).safeSpawn;
+            this.store.dispatch({ type: "enter-area", areaId, position });
             this.ui.closeDialogue();
             this.ui.closeModal();
             this.ui.showGame();
@@ -241,6 +253,7 @@ export class GameApplication {
             this.syncInputGate();
           },
           onAdvanceHint: () => this.store.dispatch({ type: "advance-hint-time", elapsedMs: 90_000 }),
+          onToggleGeometry: () => this.explorationScene.toggleGeometryOverlay(),
           onResetRun: () => {
             this.store.dispatch({ type: "reset-run" });
             this.saveAdapter.clear();

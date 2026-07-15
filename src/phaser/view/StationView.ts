@@ -1,7 +1,16 @@
 import Phaser from "phaser";
 
 import { getAreaStaticArtKey } from "../../game/assets";
-import { OWNER_DEFINITIONS } from "../../game/content";
+import {
+  OWNER_DEFINITIONS,
+  depthScaleAt,
+  getAreaArtLayout,
+  lightInfluenceAt,
+  type AreaArtLayout,
+  type LightInfluence,
+  type RainRegionDefinition,
+  type RippleRegionDefinition,
+} from "../../game/content";
 import type { AreaId, Facing, OwnerId, Point } from "../../game/core/types";
 import {
   NAGI_SPRITE_FRAME_COUNTS,
@@ -42,12 +51,32 @@ interface RainRegion {
   readonly height: number;
 }
 
-interface RainDrop {
-  x: number;
-  y: number;
+interface EffectRainRegion {
+  readonly id: string;
+  readonly points: readonly Point[];
+  readonly intensity: number;
+}
+
+interface DeterministicRainDrop {
+  readonly regionIndex: number;
+  readonly xRatio: number;
+  readonly phase: number;
   readonly length: number;
   readonly speed: number;
-  readonly regionIndex: number;
+  readonly drift: number;
+  readonly foreground: boolean;
+}
+
+interface PolygonBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+interface PolygonMaskResource {
+  readonly graphics: Phaser.GameObjects.Graphics;
+  readonly mask: Phaser.Display.Masks.GeometryMask;
 }
 
 interface PaintContext {
@@ -65,7 +94,20 @@ interface AreaPaintResult {
 
 export interface AreaVisual {
   readonly update: (time: number, delta: number) => void;
+  /** Renders the same deterministic state as update for screenshot and replay seeking. */
+  readonly seek: (time: number) => void;
+  readonly probe: () => AreaVisualProbe;
   readonly destroy: () => void;
+}
+
+export interface AreaVisualProbe {
+  readonly source: "static" | "procedural";
+  readonly time: number;
+  readonly rainRegionIds: readonly string[];
+  readonly rippleRegionIds: readonly string[];
+  readonly lightZoneIds: readonly string[];
+  readonly rainDropCount: number;
+  readonly rainMaskActive: boolean;
 }
 
 function dawnAmount(stage: number): number {
@@ -699,19 +741,110 @@ function activeLampPositions(areaId: AreaId, stage: number): readonly Point[] {
   }
 }
 
-function createDrops(regions: readonly RainRegion[], count: number): RainDrop[] {
-  if (regions.length === 0) return [];
+function stageMatchesVisualDefinition(
+  definition: { readonly availableFromStage?: number; readonly availableUntilStage?: number },
+  stage: number,
+): boolean {
+  return (definition.availableFromStage === undefined || stage >= definition.availableFromStage)
+    && (definition.availableUntilStage === undefined || stage <= definition.availableUntilStage);
+}
+
+function legacyRainRegions(
+  regions: readonly RainRegion[],
+  intensity: number,
+): readonly EffectRainRegion[] {
+  return regions.map((region, index) => ({
+    id: `legacy-rain-${index}`,
+    intensity,
+    points: [
+      { x: region.x, y: region.y },
+      { x: region.x + region.width, y: region.y },
+      { x: region.x + region.width, y: region.y + region.height },
+      { x: region.x, y: region.y + region.height },
+    ],
+  }));
+}
+
+function polygonBounds(points: readonly Point[]): PolygonBounds {
+  if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0, maxX - minX),
+    height: Math.max(0, maxY - minY),
+  };
+}
+
+function stableHash(value: string): number {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
+}
+
+function deterministicUnit(value: string, salt: number): number {
+  let hash = stableHash(value) ^ Math.imul(salt + 1, 0x45d9f3b);
+  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+  hash ^= hash >>> 16;
+  return (hash >>> 0) / 0x1_0000_0000;
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  if (divisor <= 0) return 0;
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function createDeterministicDrops(
+  areaId: AreaId,
+  regions: readonly EffectRainRegion[],
+  count: number,
+): readonly DeterministicRainDrop[] {
+  if (regions.length === 0 || count <= 0) return [];
   return Array.from({ length: count }, (_, index) => {
     const regionIndex = index % regions.length;
-    const region = regions[regionIndex] as RainRegion;
+    const region = regions[regionIndex] as EffectRainRegion;
+    const seed = `${areaId}:${region.id}:${index}`;
     return {
-      x: region.x + ((index * 173 + 41) % Math.max(1, Math.floor(region.width))),
-      y: region.y + ((index * 89 + 23) % Math.max(1, Math.floor(region.height))),
-      length: 7 + (index % 5) * 3,
-      speed: 150 + (index % 7) * 19,
       regionIndex,
+      xRatio: 0.04 + deterministicUnit(seed, 0) * 0.92,
+      phase: deterministicUnit(seed, 1),
+      length: 7 + Math.floor(deterministicUnit(seed, 2) * 14),
+      speed: 145 + deterministicUnit(seed, 3) * 155,
+      drift: 2 + deterministicUnit(seed, 4) * 5,
+      foreground: deterministicUnit(seed, 5) < Math.min(0.42, region.intensity * 1.25),
     };
   });
+}
+
+function createPolygonMask(
+  scene: Phaser.Scene,
+  polygons: readonly (readonly Point[])[],
+): PolygonMaskResource | null {
+  if (!polygons.some((points) => points.length >= 3)) return null;
+  const graphics = scene.add.graphics().setVisible(false);
+  graphics.fillStyle(0xffffff, 1);
+  for (const points of polygons) {
+    if (points.length < 3) continue;
+    graphics.fillPoints(points.map((point) => ({ x: point.x, y: point.y })), true);
+  }
+  return { graphics, mask: graphics.createGeometryMask() };
+}
+
+function colorNumber(color: `#${string}`): number {
+  return Phaser.Display.Color.HexStringToColor(color).color;
 }
 
 export function paintArea(
@@ -741,68 +874,344 @@ export function paintArea(
       .setDisplaySize(WORLD_WIDTH, WORLD_HEIGHT)
       .setDepth(-100)
     : null;
-  if (staticBackground) graphics.setVisible(false);
+  if (staticBackground) {
+    graphics.setVisible(false);
+    for (const label of labels) label.setVisible(false);
+  }
 
-  const farRain = scene.add.graphics().setDepth(1);
-  const lampGlow = scene.add.graphics().setDepth(2);
-  const puddle = scene.add.graphics().setDepth(3);
-  const nearRain = scene.add.graphics().setDepth(900);
-  const rainCount = stage >= 6
+  const layout = getAreaArtLayout(areaId);
+  const staticRainRegions: readonly RainRegionDefinition[] = layout.rainRegions
+    .filter((region) => stageMatchesVisualDefinition(region, stage));
+  const rainRegions: readonly EffectRainRegion[] = staticBackground
+    ? staticRainRegions
+    : legacyRainRegions(paintResult.rainRegions, paintResult.outdoor ? 0.36 : 0.18);
+  const staticRippleRegions: readonly RippleRegionDefinition[] = layout.rippleRegions
+    .filter((region) => stageMatchesVisualDefinition(region, stage));
+  const rippleRegions: readonly RippleRegionDefinition[] = staticBackground
+    ? staticRippleRegions
+    : paintResult.rippleBands.map((band, index) => ({
+      id: `legacy-ripple-${index}`,
+      center: { x: band.x, y: band.y },
+      radiusX: band.width / 2,
+      radiusY: 18,
+      intensity: stage >= 6 ? 0.08 : 0.14,
+    }));
+  const lightZones = layout.lightZones
+    .filter((zone) => stageMatchesVisualDefinition(zone, stage));
+
+  const farRain = scene.add.graphics().setName("area-effect:far-rain").setDepth(1);
+  const lampGlow = scene.add.graphics().setName("area-effect:lamp-glow").setDepth(2);
+  const puddle = scene.add.graphics().setName("area-effect:puddle-ripples").setDepth(3);
+  const nearRain = scene.add.graphics().setName("area-effect:near-rain").setDepth(900);
+  const totalRainIntensity = rainRegions.reduce((sum, region) => sum + region.intensity, 0);
+  const rainCount = stage >= 6 || rainRegions.length === 0
     ? 0
-    : reducedMotion
-      ? (paintResult.outdoor ? 38 : 14)
-      : (paintResult.outdoor ? 94 : 30);
-  const drops = createDrops(paintResult.rainRegions, rainCount);
+    : staticBackground
+      ? Math.ceil((20 + totalRainIntensity * 220) * (reducedMotion ? 0.42 : 1))
+      : reducedMotion
+        ? (paintResult.outdoor ? 38 : 14)
+        : (paintResult.outdoor ? 94 : 30);
+  const drops = createDeterministicDrops(areaId, rainRegions, rainCount);
+  const rainBounds = rainRegions.map((region) => polygonBounds(region.points));
+  const rainMask = createPolygonMask(scene, rainRegions.map((region) => region.points));
+  if (rainMask) {
+    farRain.setMask(rainMask.mask);
+    nearRain.setMask(rainMask.mask);
+  }
 
-  const update = (time: number, delta: number): void => {
+  let renderedTime = 0;
+  const renderAt = (requestedTime: number): void => {
+    const time = Number.isFinite(requestedTime) ? Math.max(0, requestedTime) : 0;
+    renderedTime = time;
     lampGlow.clear();
-    for (const [index, lamp] of activeLampPositions(areaId, stage).entries()) {
-      const pulse = reducedMotion ? 0.036 : 0.038 + Math.sin(time * 0.0017 + index * 1.9) * 0.009;
-      lampGlow.fillStyle(PALETTE.lamp, pulse);
-      lampGlow.fillEllipse(lamp.x, lamp.y + 92, 230, 190);
-      lampGlow.fillStyle(PALETTE.lamp, pulse * 1.45);
-      lampGlow.fillEllipse(lamp.x, lamp.y + 177, 190, 35);
+    if (staticBackground) {
+      for (const [index, zone] of lightZones.entries()) {
+        const pulse = reducedMotion ? 1 : 0.94 + Math.sin(time * 0.0013 + index * 1.73) * 0.06;
+        lampGlow.fillStyle(colorNumber(zone.reflectionColor), zone.intensity * 0.12 * pulse);
+        lampGlow.fillEllipse(
+          zone.floorReflection.center.x,
+          zone.floorReflection.center.y,
+          zone.floorReflection.radiusX * 2,
+          zone.floorReflection.radiusY * 2,
+        );
+        lampGlow.fillStyle(colorNumber(zone.color), zone.intensity * 0.035 * pulse);
+        lampGlow.fillEllipse(zone.source.x, zone.source.y, 42, 26);
+      }
+    } else {
+      for (const [index, lamp] of activeLampPositions(areaId, stage).entries()) {
+        const pulse = reducedMotion ? 0.036 : 0.038 + Math.sin(time * 0.0017 + index * 1.9) * 0.009;
+        lampGlow.fillStyle(PALETTE.lamp, pulse);
+        lampGlow.fillEllipse(lamp.x, lamp.y + 92, 230, 190);
+        lampGlow.fillStyle(PALETTE.lamp, pulse * 1.45);
+        lampGlow.fillEllipse(lamp.x, lamp.y + 177, 190, 35);
+      }
     }
 
     farRain.clear();
     nearRain.clear();
-    const intensity = paintResult.outdoor ? 0.36 : 0.18;
-    farRain.lineStyle(1, PALETTE.rain, intensity);
-    nearRain.lineStyle(2, 0xb8e2df, reducedMotion ? 0.07 : 0.13);
     for (const [index, drop] of drops.entries()) {
-      const region = paintResult.rainRegions[drop.regionIndex] as RainRegion;
-      drop.y += (drop.speed * delta) / 1_000;
-      if (drop.y > region.y + region.height + 16) drop.y = region.y - 16;
-      farRain.lineBetween(drop.x, drop.y, drop.x - 4, drop.y + drop.length);
-      if (paintResult.outdoor && index % 5 === 0) {
-        nearRain.lineBetween(drop.x + 5, drop.y - 14, drop.x - 2, drop.y + drop.length + 11);
+      const region = rainRegions[drop.regionIndex] as EffectRainRegion;
+      const bounds = rainBounds[drop.regionIndex] as PolygonBounds;
+      const travel = Math.max(1, bounds.height + drop.length + 30);
+      const y = bounds.y - drop.length
+        + positiveModulo(drop.phase * travel + (time * drop.speed) / 1_000, travel);
+      const x = bounds.x + bounds.width * drop.xRatio
+        + Math.sin(time * 0.0007 + index * 1.93) * drop.drift;
+      farRain.lineStyle(1, PALETTE.rain, Math.min(0.42, 0.08 + region.intensity * 0.88));
+      farRain.lineBetween(x, y, x - 4, y + drop.length);
+      if (drop.foreground && !reducedMotion) {
+        nearRain.lineStyle(2, 0xb8e2df, Math.min(0.16, 0.04 + region.intensity * 0.32));
+        nearRain.lineBetween(x + 5, y - 14, x - 3, y + drop.length + 11);
       }
     }
 
     puddle.clear();
-    puddle.lineStyle(1, PALETTE.rain, stage >= 6 ? 0.08 : 0.14);
     const rippleCount = reducedMotion ? 1 : 3;
-    for (const [bandIndex, band] of paintResult.rippleBands.entries()) {
+    for (const [regionIndex, region] of rippleRegions.entries()) {
       for (let index = 0; index < rippleCount; index += 1) {
-        const phase = ((time * 0.00085 + index * 0.31 + bandIndex * 0.17) % 1);
-        const x = band.x - band.width / 2 + ((index + 1) * band.width) / (rippleCount + 1);
-        puddle.strokeEllipse(x, band.y + (index % 2) * 6, 7 + phase * 34, 2 + phase * 9);
+        const seed = `${areaId}:${region.id}:${index}`;
+        const phase = positiveModulo(
+          deterministicUnit(seed, 0) + (reducedMotion ? 0 : time * 0.00052),
+          1,
+        );
+        const angle = deterministicUnit(seed, 1) * Math.PI * 2;
+        const x = region.center.x + Math.cos(angle) * region.radiusX * 0.48;
+        const y = region.center.y + Math.sin(angle) * region.radiusY * 0.32;
+        const width = Math.min(region.radiusX * 0.72, 7 + phase * region.radiusX * 0.42);
+        const height = Math.min(region.radiusY * 0.58, 2 + phase * region.radiusY * 0.34);
+        puddle.lineStyle(
+          1,
+          PALETTE.rain,
+          Math.min(0.2, region.intensity * (1 - phase) * 1.45),
+        );
+        puddle.strokeEllipse(x, y + regionIndex % 2, width, height);
       }
     }
   };
-  update(0, 0);
+  renderAt(0);
 
   return {
-    update,
+    update: (time: number, _delta: number) => renderAt(time),
+    seek: renderAt,
+    probe: () => ({
+      source: staticBackground ? "static" : "procedural",
+      time: renderedTime,
+      rainRegionIds: rainRegions.map((region) => region.id),
+      rippleRegionIds: rippleRegions.map((region) => region.id),
+      lightZoneIds: lightZones.map((zone) => zone.id),
+      rainDropCount: drops.length,
+      rainMaskActive: rainMask !== null,
+    }),
     destroy: () => {
       staticBackground?.destroy();
       graphics.destroy();
+      farRain.clearMask();
+      nearRain.clearMask();
       farRain.destroy();
       lampGlow.destroy();
       puddle.destroy();
       nearRain.destroy();
+      rainMask?.mask.destroy();
+      rainMask?.graphics.destroy();
       for (const label of labels) label.destroy();
     },
+  };
+}
+
+export interface ForegroundOccluderVisual {
+  readonly images: readonly Phaser.GameObjects.Image[];
+  readonly destroy: () => void;
+}
+
+let foregroundOccluderInstance = 0;
+
+/**
+ * Reuses exact pixels from the authored area background as depth-sorted foreground
+ * pieces. Polygon masks keep non-rectangular rails and posts from covering actors.
+ */
+export function createForegroundOccluders(
+  scene: Phaser.Scene,
+  areaId: AreaId,
+  stage: number,
+): ForegroundOccluderVisual {
+  const staticBackgroundKey = getAreaStaticArtKey(areaId, stage);
+  if (!scene.textures.exists(staticBackgroundKey)) {
+    return { images: [], destroy: () => undefined };
+  }
+
+  const layout = getAreaArtLayout(areaId);
+  const texture = scene.textures.get(staticBackgroundKey);
+  const baseFrame = texture.get("__BASE");
+  const images: Phaser.GameObjects.Image[] = [];
+  const masks: PolygonMaskResource[] = [];
+  const createdFrameNames: string[] = [];
+  const instance = foregroundOccluderInstance;
+  foregroundOccluderInstance += 1;
+
+  for (const [index, definition] of layout.foregroundOccluders.entries()) {
+    const bounds = definition.sourceBounds;
+    if (bounds.width <= 0 || bounds.height <= 0 || definition.points.length < 3) continue;
+    const sourceX = baseFrame.cutX
+      + Math.floor((Phaser.Math.Clamp(bounds.x, 0, WORLD_WIDTH) / WORLD_WIDTH) * baseFrame.cutWidth);
+    const sourceY = baseFrame.cutY
+      + Math.floor((Phaser.Math.Clamp(bounds.y, 0, WORLD_HEIGHT) / WORLD_HEIGHT) * baseFrame.cutHeight);
+    const desiredWidth = Math.max(1, Math.ceil((bounds.width / WORLD_WIDTH) * baseFrame.cutWidth));
+    const desiredHeight = Math.max(1, Math.ceil((bounds.height / WORLD_HEIGHT) * baseFrame.cutHeight));
+    const sourceWidth = Math.max(1, Math.min(desiredWidth, baseFrame.cutX + baseFrame.cutWidth - sourceX));
+    const sourceHeight = Math.max(1, Math.min(desiredHeight, baseFrame.cutY + baseFrame.cutHeight - sourceY));
+    const frameName = `__foreground:${areaId}:${stage}:${instance}:${index}`;
+    const frame = texture.add(
+      frameName,
+      baseFrame.sourceIndex,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+    );
+    if (!frame) continue;
+    // Texture.add promotes the first custom frame to Texture.firstFrame. These
+    // frames are transient across Scene restarts, so keep no-frame lookups on
+    // the durable base image instead of leaving a dangling firstFrame name.
+    texture.firstFrame = "__BASE";
+    createdFrameNames.push(frameName);
+
+    const image = scene.add.image(bounds.x, bounds.y, staticBackgroundKey, frameName)
+      .setName(`foreground-occluder:${definition.id}`)
+      .setOrigin(0)
+      .setDisplaySize(bounds.width, bounds.height)
+      .setDepth(definition.alwaysForeground ? 2_000 : definition.baselineY + 40);
+    image.setData("occluderId", definition.id);
+    image.setData("baselineY", definition.baselineY);
+    const maskResource = createPolygonMask(scene, [definition.points]);
+    if (maskResource) {
+      image.setMask(maskResource.mask);
+      masks.push(maskResource);
+    }
+    images.push(image);
+  }
+
+  let destroyed = false;
+  return {
+    images: Object.freeze([...images]),
+    destroy: () => {
+      if (destroyed) return;
+      destroyed = true;
+      for (const image of images) {
+        image.clearMask();
+        image.destroy();
+      }
+      for (const resource of masks) {
+        resource.mask.destroy();
+        resource.graphics.destroy();
+      }
+      if (scene.textures.exists(staticBackgroundKey)) {
+        const activeTexture = scene.textures.get(staticBackgroundKey);
+        for (const frameName of createdFrameNames) activeTexture.remove(frameName);
+        activeTexture.firstFrame = "__BASE";
+      }
+    },
+  };
+}
+
+const ACTOR_DEPTH_OFFSET = 40;
+const DEFAULT_ACTOR_SCALE = 0.68;
+const ACTOR_ART_ROLE_DATA_KEY = "actorArtRole";
+const ACTOR_ART_BASE_ALPHA_DATA_KEY = "actorArtBaseAlpha";
+
+type ActorArtRole = "ground-shadow" | "ground-reflection" | "visual";
+
+export interface ActorArtIntegrationResult {
+  readonly scale: number;
+  readonly light: LightInfluence;
+}
+
+function tagActorArtObject<T extends Phaser.GameObjects.GameObject>(
+  object: T,
+  role: ActorArtRole,
+  baseAlpha = 1,
+): T {
+  object.setData(ACTOR_ART_ROLE_DATA_KEY, role);
+  object.setData(ACTOR_ART_BASE_ALPHA_DATA_KEY, baseAlpha);
+  return object;
+}
+
+function actorArtObjects(container: Phaser.GameObjects.Container): readonly Phaser.GameObjects.GameObject[] {
+  const objects: Phaser.GameObjects.GameObject[] = [];
+  const visit = (current: Phaser.GameObjects.Container): void => {
+    for (const child of current.list) {
+      objects.push(child);
+      if (child instanceof Phaser.GameObjects.Container) visit(child);
+    }
+  };
+  visit(container);
+  return objects;
+}
+
+function actorTint(light: LightInfluence): number {
+  const amount = Phaser.Math.Clamp(light.intensity * 0.68 + light.rimLight * 0.5, 0, 0.32);
+  return Phaser.Display.Color.Interpolate.ColorWithColor(
+    Phaser.Display.Color.ValueToColor(0xffffff),
+    Phaser.Display.Color.ValueToColor(colorNumber(light.color)),
+    100,
+    Math.round(amount * 100),
+  ).color;
+}
+
+export function applyActorDepthScale(
+  container: Phaser.GameObjects.Container,
+  layout: AreaArtLayout,
+  footY: number,
+): number {
+  const scale = depthScaleAt(layout, footY);
+  container.setScale(scale);
+  container.setDepth(footY + ACTOR_DEPTH_OFFSET);
+  container.setData("actorArtDepthScale", scale);
+  return scale;
+}
+
+export function applyActorLightInfluence(
+  container: Phaser.GameObjects.Container,
+  layout: AreaArtLayout,
+  footPosition: Point,
+  stage = 0,
+): LightInfluence {
+  const light = lightInfluenceAt(layout, footPosition, stage);
+  const tint = actorTint(light);
+  for (const object of actorArtObjects(container)) {
+    const role = object.getData(ACTOR_ART_ROLE_DATA_KEY) as ActorArtRole | undefined;
+    const baseAlpha = object.getData(ACTOR_ART_BASE_ALPHA_DATA_KEY) as number | undefined;
+    if (role === "ground-shadow" && object instanceof Phaser.GameObjects.Ellipse) {
+      object.setAlpha((baseAlpha ?? 0.5) * light.shadowOpacityMultiplier);
+      object.setScale(1 + light.intensity * 0.12, 1 - light.intensity * 0.08);
+    } else if (role === "ground-reflection" && object instanceof Phaser.GameObjects.Ellipse) {
+      object.setFillStyle(colorNumber(light.reflectionColor), 1);
+      object.setAlpha(Phaser.Math.Clamp(light.intensity * 0.34 + light.rimLight * 0.12, 0, 0.22));
+    } else if (role === "visual") {
+      const alpha = Phaser.Math.Clamp((baseAlpha ?? 1) * (0.975 + light.intensity * 0.16), 0, 1);
+      if (object instanceof Phaser.GameObjects.Sprite) {
+        object.setTint(tint).setAlpha(alpha);
+      } else if (
+        object instanceof Phaser.GameObjects.Container
+        || object instanceof Phaser.GameObjects.Graphics
+      ) {
+        object.setAlpha(alpha);
+      }
+    }
+  }
+  container.setData("actorArtLightIntensity", light.intensity);
+  container.setData("actorArtLightColor", light.color);
+  return light;
+}
+
+export function applyActorArtIntegration(
+  container: Phaser.GameObjects.Container,
+  layout: AreaArtLayout,
+  footPosition: Point,
+  stage = 0,
+): ActorArtIntegrationResult {
+  return {
+    scale: applyActorDepthScale(container, layout, footPosition.y),
+    light: applyActorLightInfluence(container, layout, footPosition, stage),
   };
 }
 
@@ -859,7 +1268,16 @@ export function createNagi(
   position: Point,
   reducedMotion = false,
 ): Phaser.GameObjects.Container {
-  const shadow = scene.add.ellipse(0, 19, 42, 15, PALETTE.shadow, 0.5).setName("nagi-shadow");
+  const shadow = tagActorArtObject(
+    scene.add.ellipse(0, 2, 46, 14, PALETTE.shadow, 0.48).setName("nagi-shadow"),
+    "ground-shadow",
+    0.48,
+  );
+  const reflection = tagActorArtObject(
+    scene.add.ellipse(0, 5, 36, 9, 0xffffff, 0).setName("nagi-ground-reflection"),
+    "ground-reflection",
+    0,
+  );
   const leftLeg = scene.add.rectangle(-7, 13, 8, 21, 0x18263c, 1).setOrigin(0.5, 0).setName("nagi-left-leg");
   const rightLeg = scene.add.rectangle(7, 13, 8, 21, 0x18263c, 1).setOrigin(0.5, 0).setName("nagi-right-leg");
   const leftShoe = scene.add.ellipse(-7, 35, 11, 6, 0x09111f, 1).setName("nagi-left-shoe");
@@ -878,30 +1296,35 @@ export function createNagi(
   const fringe = scene.add.arc(-2, -35, 15, 182, 356, false, 0x11192b, 1);
   const eye = scene.add.circle(8, -29, 1.4, 0x17202b, 1);
   const hairClip = scene.add.rectangle(-10, -39, 7, 2, PALETTE.lamp, 0.76).setRotation(-0.4);
-  const visual = scene.add.container(0, 0, [
-    leftLeg,
-    rightLeg,
-    leftShoe,
-    rightShoe,
-    coat,
-    coatPanel,
-    collarLeft,
-    collarRight,
-    scarfTail,
-    scarf,
-    hairBack,
-    face,
-    ear,
-    faceFront,
-    fringe,
-    eye,
-    hairClip,
-  ]).setName("nagi-visual");
+  const visual = tagActorArtObject(
+    scene.add.container(0, -38, [
+      leftLeg,
+      rightLeg,
+      leftShoe,
+      rightShoe,
+      coat,
+      coatPanel,
+      collarLeft,
+      collarRight,
+      scarfTail,
+      scarf,
+      hairBack,
+      face,
+      ear,
+      faceFront,
+      fringe,
+      eye,
+      hairClip,
+    ]).setName("nagi-visual"),
+    "visual",
+  );
   const staticSprite = scene.textures.exists(NAGI_SPRITE_TEXTURE_KEYS.idle.down)
-    ? scene.add.sprite(0, 40, NAGI_SPRITE_TEXTURE_KEYS.idle.down, 0)
-      .setName(NAGI_SPRITE_NAME)
-      .setOrigin(0.5, 1)
-      .setScale(0.82)
+    ? tagActorArtObject(
+      scene.add.sprite(0, 0, NAGI_SPRITE_TEXTURE_KEYS.idle.down, 0)
+        .setName(NAGI_SPRITE_NAME)
+        .setOrigin(0.5, 1),
+      "visual",
+    )
     : null;
   if (staticSprite) {
     ensureNagiLocomotionAnimations(scene);
@@ -913,11 +1336,13 @@ export function createNagi(
     }
   }
 
-  const children: Phaser.GameObjects.GameObject[] = [shadow, visual];
+  const children: Phaser.GameObjects.GameObject[] = [reflection, shadow, visual];
   if (staticSprite) children.push(staticSprite);
   const container = scene.add.container(position.x, position.y, children);
   container.setName("nagi");
-  container.setDepth(position.y + 40);
+  container.setDepth(position.y + ACTOR_DEPTH_OFFSET);
+  container.setScale(DEFAULT_ACTOR_SCALE);
+  container.setData("footAnchor", { x: 0, y: 0 });
   container.setSize(28, 32);
   scene.physics.add.existing(container);
   const body = container.body as Phaser.Physics.Arcade.Body;
@@ -977,7 +1402,7 @@ export function setNagiMotion(
   const direction = facing === "left" ? -1 : 1;
   visual.setScale(direction, 1);
   const stride = moving && !reducedMotion ? Math.sin(time * 0.02) : 0;
-  visual.y = moving && !reducedMotion ? Math.abs(Math.sin(time * 0.02)) * -1.8 : 0;
+  visual.y = -38 + (moving && !reducedMotion ? Math.abs(Math.sin(time * 0.02)) * -1.8 : 0);
   const leftLeg = visual.getByName("nagi-left-leg") as Phaser.GameObjects.Rectangle | null;
   const rightLeg = visual.getByName("nagi-right-leg") as Phaser.GameObjects.Rectangle | null;
   const leftShoe = visual.getByName("nagi-left-shoe") as Phaser.GameObjects.Ellipse | null;
@@ -1049,10 +1474,12 @@ function createPassengerStaticSprite(
   const textureKey = PASSENGER_SPRITE_TEXTURE_KEYS[ownerId];
   if (!textureKey || !scene.textures.exists(textureKey)) return null;
 
-  const sprite = scene.add.sprite(0, 43, textureKey, 0)
-    .setName("passenger-art-v3-sprite")
-    .setOrigin(0.5, 1)
-    .setScale(0.82);
+  const sprite = tagActorArtObject(
+    scene.add.sprite(0, 0, textureKey, 0)
+      .setName("passenger-art-v3-sprite")
+      .setOrigin(0.5, 1),
+    "visual",
+  );
   const animationKey = getPassengerIdleAnimationKey(ownerId);
   if (!scene.anims.exists(animationKey)) {
     scene.anims.create({
@@ -1079,8 +1506,17 @@ export function createPassenger(
   const accent = Phaser.Display.Color.HexStringToColor(owner.visual.accentColor).color;
   const isChild = ownerId === "owner_red_boots_child";
   const heightScale = isChild ? 0.82 : ownerId === "owner_old_listener" ? 0.94 : 1;
-  const shadow = scene.add.ellipse(0, 20, isChild ? 34 : 44, 14, PALETTE.shadow, 0.52);
-  const warmHalo = scene.add.ellipse(0, 15, isChild ? 44 : 58, 28, PALETTE.lamp, returned ? 0.13 : 0);
+  const shadow = tagActorArtObject(
+    scene.add.ellipse(0, 2, isChild ? 36 : 48, 14, PALETTE.shadow, 0.5),
+    "ground-shadow",
+    0.5,
+  );
+  const reflection = tagActorArtObject(
+    scene.add.ellipse(0, 5, isChild ? 28 : 38, 9, 0xffffff, 0),
+    "ground-reflection",
+    0,
+  );
+  const warmHalo = scene.add.ellipse(0, 0, isChild ? 44 : 58, 22, PALETTE.lamp, returned ? 0.13 : 0);
   const visual = scene.add.graphics();
   visual.fillStyle(0x111924, 0.98);
   visual.fillCircle(0, -29, isChild ? 12 : 14);
@@ -1164,16 +1600,23 @@ export function createPassenger(
 
   const staticSprite = createPassengerStaticSprite(scene, ownerId, reducedMotion);
   if (staticSprite) visual.setVisible(false);
-  const visualContainer = scene.add.container(0, 0, [visual]).setScale(1, heightScale);
+  const visualContainer = tagActorArtObject(
+    scene.add.container(0, -54 * heightScale, [visual])
+      .setName("passenger-procedural-visual")
+      .setScale(1, heightScale),
+    "visual",
+  );
   if (returned) {
     const relief = scene.add.star(-21, -31, 4, 2, 6, PALETTE.lamp, 0.85);
     visualContainer.add(relief);
   }
-  const children: Phaser.GameObjects.GameObject[] = [shadow, warmHalo, visualContainer];
+  const children: Phaser.GameObjects.GameObject[] = [reflection, shadow, warmHalo, visualContainer];
   if (staticSprite) children.push(staticSprite);
   const container = scene.add.container(position.x, position.y, children);
   container.setName(`passenger:${ownerId}`);
-  container.setDepth(position.y + 35);
+  container.setDepth(position.y + ACTOR_DEPTH_OFFSET);
+  container.setScale(DEFAULT_ACTOR_SCALE);
+  container.setData("footAnchor", { x: 0, y: 0 });
   container.setData("ownerId", ownerId);
   container.setData("artSource", staticSprite ? "art-v3" : "procedural");
   return container;

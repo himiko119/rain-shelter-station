@@ -10,6 +10,12 @@ export interface CameraViewportSize {
   readonly height: number;
 }
 
+export interface CameraViewportRect extends CameraViewportSize {
+  /** Screen-space viewport owned by the Phaser camera. */
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface CameraSafeInsets {
   readonly top: number;
   readonly right: number;
@@ -67,6 +73,7 @@ export type CameraTrackingPolicy = FixedCameraPolicy | FollowCameraPolicy;
 export interface CameraLayout {
   readonly mode: CameraLayoutMode;
   readonly viewport: CameraViewportSize;
+  readonly cameraViewport: CameraViewportRect;
   readonly world: typeof CAMERA_WORLD_SIZE;
   readonly safeArea: CameraSafeArea;
   readonly zoom: CameraZoomPolicy;
@@ -74,7 +81,7 @@ export interface CameraLayout {
   readonly safeVisibleWorld: CameraViewportSize;
   readonly showsEntireWorld: boolean;
   readonly tracking: CameraTrackingPolicy;
-  readonly roundPixels: true;
+  readonly roundPixels: false;
   readonly clampToWorldBounds: true;
 }
 
@@ -144,26 +151,62 @@ function resolveSafeArea(
   };
 }
 
+function resolveCameraViewport(
+  mode: CameraLayoutMode,
+  viewport: CameraViewportSize,
+  safeArea: CameraSafeArea,
+): CameraViewportRect {
+  if (mode === "portrait") {
+    return {
+      x: 0,
+      y: safeArea.y,
+      width: viewport.width,
+      height: safeArea.height,
+    };
+  }
+
+  if (mode !== "desktop") {
+    return { x: 0, y: 0, width: viewport.width, height: viewport.height };
+  }
+
+  const worldAspectRatio = CAMERA_WORLD_SIZE.width / CAMERA_WORLD_SIZE.height;
+  const viewportAspectRatio = viewport.width / viewport.height;
+  const width = viewportAspectRatio > worldAspectRatio
+    ? round(viewport.height * worldAspectRatio)
+    : viewport.width;
+  const height = viewportAspectRatio > worldAspectRatio
+    ? viewport.height
+    : round(viewport.width / worldAspectRatio);
+
+  return {
+    x: round((viewport.width - width) / 2),
+    y: round((viewport.height - height) / 2),
+    width,
+    height,
+  };
+}
+
 function resolveZoom(
   mode: CameraLayoutMode,
   viewport: CameraViewportSize,
+  cameraViewport: CameraViewportRect,
   profile: CameraProfile,
 ): CameraZoomPolicy {
   const fitWorld = Math.min(
-    viewport.width / CAMERA_WORLD_SIZE.width,
-    viewport.height / CAMERA_WORLD_SIZE.height,
+    cameraViewport.width / CAMERA_WORLD_SIZE.width,
+    cameraViewport.height / CAMERA_WORLD_SIZE.height,
   );
 
   if (mode === "desktop") {
-    const maximum = Math.min(profile.zoom.max, fitWorld);
-    const minimum = Math.min(profile.zoom.min, maximum);
-    const preferred = fitWorld * 0.96;
+    // A fixed 16:9 room must cover its camera viewport exactly. Capping or
+    // rounding this value exposes camera background around the world at large
+    // desktop sizes.
     return {
-      value: round(clamp(preferred, minimum, maximum)),
-      preferred: round(preferred),
-      fitWorld: round(fitWorld),
-      min: round(minimum),
-      max: round(maximum),
+      value: fitWorld,
+      preferred: fitWorld,
+      fitWorld,
+      min: Math.min(profile.zoom.min, fitWorld),
+      max: Math.max(profile.zoom.max, fitWorld),
     };
   }
 
@@ -221,10 +264,11 @@ export function resolveCameraLayout(viewport: CameraViewportSize): CameraLayout 
   const mode = classifyCameraLayout(normalizedViewport);
   const profile = CAMERA_PROFILES[mode];
   const safeArea = resolveSafeArea(normalizedViewport, profile.safeInsets);
-  const zoom = resolveZoom(mode, normalizedViewport, profile);
+  const cameraViewport = resolveCameraViewport(mode, normalizedViewport, safeArea);
+  const zoom = resolveZoom(mode, normalizedViewport, cameraViewport, profile);
   const visibleWorld = {
-    width: round(normalizedViewport.width / zoom.value),
-    height: round(normalizedViewport.height / zoom.value),
+    width: round(cameraViewport.width / zoom.value),
+    height: round(cameraViewport.height / zoom.value),
   };
   const safeVisibleWorld = {
     width: round(safeArea.width / zoom.value),
@@ -234,6 +278,7 @@ export function resolveCameraLayout(viewport: CameraViewportSize): CameraLayout 
   return {
     mode,
     viewport: normalizedViewport,
+    cameraViewport,
     world: CAMERA_WORLD_SIZE,
     safeArea,
     zoom,
@@ -243,7 +288,7 @@ export function resolveCameraLayout(viewport: CameraViewportSize): CameraLayout 
       visibleWorld.width >= CAMERA_WORLD_SIZE.width &&
       visibleWorld.height >= CAMERA_WORLD_SIZE.height,
     tracking: resolveTracking(mode, normalizedViewport, safeArea),
-    roundPixels: true,
+    roundPixels: false,
     clampToWorldBounds: true,
   };
 }

@@ -7,7 +7,6 @@ import {
   openGame,
   snapshot,
   stabilizeVisuals,
-  waitForGameIdle,
 } from "./helpers";
 
 const runtime = globalThis as typeof globalThis & {
@@ -47,32 +46,12 @@ async function capture(
   expect(screenshot.byteLength).toBeGreaterThan(10_000);
 }
 
-async function holdUntilArea(page: Page, key: string, areaId: string, timeout = 10_000): Promise<void> {
-  await page.keyboard.down(key);
-  try {
-    await expect.poll(async () => (await snapshot(page)).areaId, { timeout }).toBe(areaId);
-  } catch (error) {
-    const state = await snapshot(page);
-    throw new Error(
-      `Failed to enter ${areaId} with ${key}; remained in ${state.areaId} at ${JSON.stringify(state.playerPosition)}.`,
-      { cause: error },
-    );
-  } finally {
-    await page.keyboard.up(key);
-  }
-  await waitForGameIdle(page);
-}
-
 async function enterTicketGate(page: Page): Promise<void> {
-  await enterFootbridge(page);
-  await holdKey(page, "ArrowUp", 1_700);
-  await holdUntilArea(page, "ArrowLeft", "area_concourse", 7_000);
+  await loadScenario(page, "concourse-near-gates");
 }
 
 async function enterFootbridge(page: Page): Promise<void> {
-  await loadScenario(page, "rain-platform");
-  await holdKey(page, "ArrowLeft", 450);
-  await holdUntilArea(page, "ArrowUp", "area_footbridge");
+  await loadScenario(page, "footbridge-near-railing");
 }
 
 async function reachFinalChoice(page: Page): Promise<void> {
@@ -145,7 +124,7 @@ test.describe("visual overhaul desktop baseline", () => {
     await capture(page, "desktop", "09-inventory-1280x720.png", viewport);
 
     await loadScenario(page, "fresh-game");
-    await holdKey(page, "ArrowLeft", 1_000);
+    await holdKey(page, "ArrowDown", 360);
     await page.keyboard.press("KeyE");
     await expect.poll(async () => (await snapshot(page)).inventoryItemIds).toContain("item_red_umbrella");
     const acquisition = page.getByRole("dialog");

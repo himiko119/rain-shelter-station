@@ -314,6 +314,8 @@ export class AppUi {
   public constructor(root: HTMLElement) {
     root.replaceChildren();
     this.shell = element("div", "app-shell");
+    const stage = element("div", "game-stage");
+    const stageUi = element("div", "game-stage-ui");
     this.canvasHost = element("div", "game-world");
     this.canvasHost.id = "game-world";
     this.canvasHost.setAttribute("aria-label", "雨ノ間駅の探索画面");
@@ -360,8 +362,7 @@ export class AppUi {
     this.touchLayer = this.createTouchControls();
     this.touchLayer.hidden = true;
 
-    this.shell.append(
-      this.canvasHost,
+    stageUi.append(
       this.hud,
       this.objectiveChip,
       this.prompt,
@@ -371,6 +372,8 @@ export class AppUi {
       this.dialogueLayer,
       this.touchLayer,
     );
+    stage.append(this.canvasHost, stageUi);
+    this.shell.append(stage);
     root.append(this.shell);
   }
 
@@ -830,10 +833,14 @@ export class AppUi {
     this.screenLayer.dataset.memoryItem = itemId;
     this.screenLayer.style.setProperty("--memory-accent", view.color ?? view.accent ?? "#d68f7c");
     this.screenLayer.replaceChildren();
+    const memoryArtKey = MEMORY_STATIC_ART_KEYS[view.memoryId];
+    const backdrop = staticImage(memoryArtKey, "memory-scene__backdrop", "eager");
+    backdrop.setAttribute("aria-hidden", "true");
+    backdrop.addEventListener("error", () => backdrop.remove(), { once: true });
     const card = element("main", "memory-scene");
     card.dataset.memoryItem = itemId;
     const visual = element("figure", "memory-scene__visual");
-    const memoryImage = staticImage(MEMORY_STATIC_ART_KEYS[view.memoryId], "memory-scene__image", "eager");
+    const memoryImage = staticImage(memoryArtKey, "memory-scene__image", "eager");
     memoryImage.addEventListener("load", () => visual.classList.add("memory-scene__visual--static"), { once: true });
     memoryImage.addEventListener("error", () => memoryImage.remove(), { once: true });
     visual.append(
@@ -841,18 +848,17 @@ export class AppUi {
       createItemSketch(itemId, ITEM_FALLBACK_BY_ID[itemId], "memory-item-sketch item-sketch"),
       element("figcaption", "memory-scene__visual-caption", view.visual ?? MEMORY_CAPTION_BY_ITEM[itemId]),
     );
-    card.append(
-      visual,
-      element("span", "memory-scene__label", "MEMORY"),
-      element("h1", "memory-scene__title", view.title),
-    );
+    const copy = element("section", "memory-scene__copy");
+    const label = element("span", "memory-scene__label", "MEMORY");
+    const title = element("h1", "memory-scene__title", view.title);
     const line = element("p", "memory-scene__line");
     const progress = element("div", "memory-scene__progress");
     view.lines.forEach((_value, index) => progress.append(element("span", index === 0 ? "is-active" : undefined)));
     const next = element("button", "memory-scene__next", "記憶をたどる");
     next.type = "button";
-    card.append(line, progress, next);
-    this.screenLayer.append(card);
+    copy.append(label, title, line, progress, next);
+    card.append(visual, copy);
+    this.screenLayer.append(backdrop, card);
     let index = 0;
     const render = (): void => {
       line.textContent = view.lines[index] ?? "";
